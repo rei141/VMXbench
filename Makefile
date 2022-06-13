@@ -4,11 +4,13 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
          -e EfiMain \
-         -O6
+         -O6 \
+		 -I ./uefi-headers/Include -I ./uefi-headers/Include/X64
 
-QEMU = qemu-system-x86_64
+QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
+# QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
-QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -smp 1
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
@@ -26,7 +28,7 @@ endif
 all: main.efi
 
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
-	$(QEMU) $(QEMU_OPTS)
+	sudo $(QEMU) $(QEMU_OPTS)
 
 OVMF.fd:
 	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip

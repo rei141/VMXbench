@@ -32,60 +32,78 @@
  *************************************************************************** */
 
 #include <stdint.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
 
 /** ***************************************************************************
  * @section section_uefi Section 1. UEFI definitions
  * This section contains several basic UEFI type and function definitions.
  *************************************************************************** */
 
-#define IN
-#define OUT
-#define EFIAPI
+// #define IN
+// #define OUT
+// #define EFIAPI
 
-typedef unsigned short CHAR16, UINT16;
-typedef unsigned long long EFI_STATUS;
-typedef void *EFI_HANDLE;
+// typedef unsigned short CHAR16, UINT16;
+// typedef unsigned long long EFI_STATUS;
+// typedef void *EFI_HANDLE;
 
-static const EFI_STATUS EFI_SUCCESS = 0;
-static const EFI_STATUS EFI_NOT_READY = 0x8000000000000006;
+// static const EFI_STATUS EFI_SUCCESS = 0;
+// static const EFI_STATUS EFI_NOT_READY = 0x8000000000000006;
 
-struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL;
-typedef struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL EFI_SIMPLE_TEXT_INPUT_PROTOCOL;
-typedef struct {
-    UINT16 ScanCode;
-    CHAR16 UnicodeChar;
-} EFI_INPUT_KEY;
-typedef
-EFI_STATUS
-(EFIAPI *EFI_INPUT_READ_KEY) (
-    IN EFI_SIMPLE_TEXT_INPUT_PROTOCOL *This,
-    OUT EFI_INPUT_KEY *Key
-    );
-struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL {
-    void               *a;
-    EFI_INPUT_READ_KEY ReadKeyStroke;
-};
+// struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL;
+// typedef struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL EFI_SIMPLE_TEXT_INPUT_PROTOCOL;
+// typedef struct {
+//     UINT16 ScanCode;
+//     CHAR16 UnicodeChar;
+// } EFI_INPUT_KEY;
+// typedef
+// EFI_STATUS
+// (EFIAPI *EFI_INPUT_READ_KEY) (
+//     IN EFI_SIMPLE_TEXT_INPUT_PROTOCOL *This,
+//     OUT EFI_INPUT_KEY *Key
+//     );
+// struct _EFI_SIMPLE_TEXT_INPUT_PROTOCOL {
+//     void               *a;
+//     EFI_INPUT_READ_KEY ReadKeyStroke;
+// };
 
-struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL;
-typedef struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL;
-typedef
-EFI_STATUS
-(EFIAPI *EFI_TEXT_STRING) (
-    IN EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
-    IN CHAR16                          *String
-    );
-struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL {
-    void            *a;
-    EFI_TEXT_STRING OutputString;
-};
+// struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL;
+// typedef struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL;
+// typedef
+// EFI_STATUS
+// (EFIAPI *EFI_TEXT_STRING) (
+//     IN EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *This,
+//     IN CHAR16                          *String
+//     );
+// struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL {
+//     void            *a;
+//     EFI_TEXT_STRING OutputString;
+// };
 
-typedef struct {
-    char                            a[36];
-    EFI_HANDLE                      ConsoleInHandle;
-    EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *ConIn;
-    EFI_HANDLE                      ConsoleOutHandle;
-    EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *ConOut;
-} EFI_SYSTEM_TABLE;
+// typedef struct {
+//     char                            a[36];
+//     EFI_HANDLE                      ConsoleInHandle;
+//     EFI_SIMPLE_TEXT_INPUT_PROTOCOL  *ConIn;
+//     EFI_HANDLE                      ConsoleOutHandle;
+//     EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *ConOut;
+// } EFI_SYSTEM_TABLE;
+
+/*
+uint16_t vmcs_index[] = {0x0000,0x0002,0x0004,0x0800,0x0802,0x0804,0x0806,0x0808,0x080a,0x080c,0x080e,0x0810, \
+0x0812,0x0c00,0x0c02,0x0c04,0x0c06,0x0c08,0x0c0a,0x0c0c,0x2000,0x2002,0x2004,0x2006,0x2008,0x200a,0x200c, \
+0x200e,0x2010,0x2012,0x2014,0x2016,0x2018,0x201a,0x201c,0x201e,0x2020,0x2022,0x2024,0x2028,0x202a,0x202c, \
+0x202e,0x2032,0x2400,0x2800,0x2802,0x2804,0x2806,0x2808,0x280a,0x280c,0x280e,0x2810,0x2c00,0x2c02,0x2c04, \
+0x4000,0x4002,0x4004,0x4006,0x4008,0x400a,0x400c,0x400e,0x4010,0x4012,0x4014,0x4016,0x4018,0x401a,0x401c, \
+0x401e,0x4020,0x4022,0x4400,0x4402,0x4404,0x4406,0x4408,0x440a,0x440c,0x440e,0x4800,0x4802,0x4806,0x4808, \
+0x480a,0x480c,0x480e,0x4810,0x4812,0x4814,0x4816,0x4818,0x481a,0x481c,0x481e,0x4820,0x4822,0x4824,0x4826, \
+0x4828,0x482a,0x482e,0x4c00,0x6000,0x6002,0x6004,0x6006,0x6008,0x600a,0x600c,0x600e,0x6400,0x6404,0x6402, \
+0x6408,0x6406,0x640a,0x6800,0x6802,0x6804,0x6806,0x6808,0x680a,0x680c,0x680e,0x6810,0x6812,0x6814,0x6816, \
+0x6818,0x681a,0x681c,0x681e,0x6820,0x6822,0x6824,0x6826,0x6c00,0x6c02,0x6c04,0x6c06,0x6c08,0x6c0a,0x6c0c, \
+0x6c0e,0x6c10,0x6c12,0x6c14,0x6c16};
+*/
+
+
 
 EFI_SYSTEM_TABLE  *SystemTable;
 
@@ -252,6 +270,15 @@ static inline uint64_t vmcall(uint64_t arg)
 		  : "memory", "rdx", "r8", "r9", "r10", "r11");
     return ret;
 }
+static inline uint64_t vmcall_with_vmcall_number(uint64_t vmcall_num)
+{
+    uint64_t ret;
+    asm volatile ("vmcall"
+		  : "=a" (ret)
+		  : "a" (vmcall_num)
+		  : "memory", "rdx", "r8", "r9", "r10", "r11");
+    return ret;
+}
 
 /** ***************************************************************************
  * @section section_vmxbench Section 3. VMXbench
@@ -259,8 +286,9 @@ static inline uint64_t vmcall(uint64_t arg)
  *************************************************************************** */
 
 static int env[28];
-static int index;
+// static int index;
 static uint64_t tsc_exit[10], tsc_entry[10];
+uint16_t input_from_file[4096 / sizeof(uint16_t)];
 
 void print_results()
 {
@@ -294,23 +322,100 @@ void print_exitreason(uint64_t reason)
 	wprintf(L"%016x: %016x\r\n", rsp, *(uint64_t *)rsp);
     wprintf(L"\r\n");
 }
+uint16_t vmcs_index[] = {0x0000,0x0002,0x0004,0x0800,0x0802,0x0804,0x0806,0x0808,0x080a,0x080c,0x080e,0x0810, \
+0x0812,0x0c00,0x0c02,0x0c04,0x0c06,0x0c08,0x0c0a,0x0c0c,0x2000,0x2002,0x2004,0x2006,0x2008,0x200a,0x200c, \
+0x200e,0x2010,0x2012,0x2014,0x2016,0x2018,0x201a,0x201c,0x201e,0x2020,0x2022,0x2024,0x2028,0x202a,0x202c, \
+0x202e,0x2032,0x2400,0x2800,0x2802,0x2804,0x2806,0x2808,0x280a,0x280c,0x280e,0x2810,0x2c00,0x2c02,0x2c04, \
+0x4000,0x4002,0x4004,0x4006,0x4008,0x400a,0x400c,0x400e,0x4010,0x4012,0x4014,0x4016,0x4018,0x401a,0x401c, \
+0x401e,0x4020,0x4022,0x4400,0x4402,0x4404,0x4406,0x4408,0x440a,0x440c,0x440e,0x4800,0x4802,0x4806,0x4808, \
+0x480a,0x480c,0x480e,0x4810,0x4812,0x4814,0x4816,0x4818,0x481a,0x481c,0x481e,0x4820,0x4822,0x4824,0x4826, \
+0x4828,0x482a,0x482e,0x4c00,0x6000,0x6002,0x6004,0x6006,0x6008,0x600a,0x600c,0x600e,0x6400,0x6404,0x6402, \
+0x6408,0x6406,0x640a,0x6800,0x6802,0x6804,0x6806,0x6808,0x680a,0x680c,0x680e,0x6810,0x6812,0x6814,0x6816, \
+0x6818,0x681a,0x681c,0x681e,0x6820,0x6822,0x6824,0x6826,0x6c00,0x6c02,0x6c04,0x6c06,0x6c08,0x6c0a,0x6c0c, \
+0x6c0e,0x6c10,0x6c12,0x6c14,0x6c16};
 
-uint64_t host_entry(uint64_t arg)
+void host_entry(uint64_t arg)
 {
-    tsc_exit[index] = rdtsc() - arg;
+    // tsc_exit[index] = rdtsc() - arg;
     uint64_t reason = vmread(0x4402);
     if (reason == 18) {
-	if (arg > 0) {
-	    uint64_t rip = vmread(0x681E); // Guest RIP
-	    uint64_t len = vmread(0x440C); // VM-exit instruction length
-	    vmwrite(0x681E, rip + len);
-	    return rdtsc();
+	if (arg == 0) {
+        // print_exitreason(reason);
+        wprintf(L"goodbye:)\n");
+        __builtin_longjmp(env, 1);
 	}
-	print_results();
-    } else
-	print_exitreason(reason);
+    if (arg == 1) {
+        wprintf(L"Start fuzzing...\n");
+        // for (int i = 0; i < 50; ++i) {
+        //     wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
+        // }
+        
+        wprintf(L"vmread/write start\n");
+        for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+        // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
+            uint16_t index = input_from_file[i];
+            uint16_t windex = input_from_file[i + 1];
+            uint64_t wvalue = (uint64_t)input_from_file[i + 2];
+            // if (windex == 0x681e || windex == 0x440c||windex==0x6c16){
+            //     // wprintf(L"opps\n");
+            // }
+            windex = windex%152;
+            // windex += 90;
+            // windex = 150 + i%5;
 
+            // wprintf(L"%d\n",windex);
+            // uint16_t windex1 = vmcs_index[windex+1];
+            // uint16_t windex2 = vmcs_index[windex+2];
+            // uint16_t windex3 = vmcs_index[windex+3];
+            // uint16_t windex4 = vmcs_index[windex+4];
+            // uint16_t windex5 = vmcs_index[windex+5];
+            windex = vmcs_index[windex];
+// /*
+            if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || \
+            windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 \
+            || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a \
+            || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 \
+            || windex == 0x4010 || windex == 0x400e ){
+                // wprintf(L"opps\n");
+                // wprintf(L"PPPPPPP\n");
+                continue;
+                // windex = 0x481c; 06
+                // windex = 0x4014;
+            }
+            // */
+            if (windex < 0x2000) {
+            } else if (windex < 0x4000) {
+                wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+            } else if (windex < 0x6000) {
+                wvalue = (uint64_t)input_from_file[i+3]<<16 | wvalue;
+            }else {
+                wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+            }
+                // wprintf(L"%d, vmread(%x)\n", i, index);
+                uint64_t ret = vmread(index);
+                ret += 1;
+                // wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
+                vmwrite(windex, wvalue);
+                // vmwrite(windex1,wvalue);
+                // vmwrite(windex2,wvalue);
+                // vmwrite(windex3, wvalue);
+                // // wprintf(L"%x\n",windex);
+                // vmwrite(windex4,wvalue);
+                // vmwrite(windex5,wvalue);
+        }
+        wprintf(L"vmread/write end\n");
+        vmcall_with_vmcall_number(13);
+
+    }
+	// print_results();
+    uint64_t rip = vmread(0x681E); // Guest RIP
+    uint64_t len = vmread(0x440C); // VM-exit instruction length
+    vmwrite(0x681E, rip + len);
+    return ;
+    } else {
+	print_exitreason(reason);
     __builtin_longjmp(env, 1);
+    }
 }
 
 void __host_entry(void);
@@ -327,16 +432,8 @@ void _host_entry(void)
 _Noreturn
 void guest_entry(void)
 {
-    // warm up
-    for (int i = 0; i < 10; i++)
+
 	vmcall(1);
-    // benchmark
-    for (index = 0; index < 10; index++) {
-	uint64_t tsc;
-	tsc = vmcall(rdtsc());
-	tsc = rdtsc() - tsc;
-	tsc_entry[index] = tsc;
-    }
     vmcall(0);
     while(1);
 }
@@ -379,6 +476,62 @@ char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
 
 
+
+EFI_STATUS read_input_from_file(EFI_SYSTEM_TABLE *SystemTable) {
+    EFI_STATUS Status;
+    EFI_GUID SimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SimpleFileSystemProtocol;
+    Status = SystemTable->BootServices->LocateProtocol(
+        &SimpleFileSystemProtocolGuid,
+        NULL,
+        (VOID **)&SimpleFileSystemProtocol
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"LocateProtocol %r\n", Status);
+        return Status;
+    }
+    
+    EFI_FILE_PROTOCOL *Root;
+    Status = SimpleFileSystemProtocol->OpenVolume(
+        SimpleFileSystemProtocol,
+        &Root
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"OpenVolume %r\n", Status);
+        return Status;
+    }   
+    
+
+    EFI_FILE_PROTOCOL *File;
+    CHAR16 *Path = L"input";
+    Status = Root->Open(
+        Root,
+        &File,
+        Path,
+        EFI_FILE_MODE_READ,
+        EFI_FILE_READ_ONLY
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"Open %r\n", Status);
+        return Status;
+    }
+    wprintf(L"hello\n");
+    UINTN BufferSize = 4096;
+    Status = File->Read(
+        File,
+        &BufferSize,
+        (VOID *)input_from_file
+    );
+    if (EFI_ERROR(Status)) {
+        wprintf(L"Read %r\n", Status);
+        return Status;
+    }
+
+    wprintf(L"BufferSize = %d\n", BufferSize);
+
+    return EFI_SUCCESS;
+}
+
 EFI_STATUS
 EFIAPI
 EfiMain (
@@ -391,6 +544,23 @@ EfiMain (
 
     SystemTable = _SystemTable;
     wprintf(L"Starting VMXbench ...\r\n");
+    // wprintf(L"read:%d\n",input_from_file[0]);
+
+    EFI_STATUS Status = read_input_from_file(SystemTable);
+    if (EFI_ERROR(Status)) {
+        wprintf(L"read_input_from_file failed\n");
+        return Status;
+    }
+    // wprintf(L"read:%d\n",input_from_file[0]);
+    // wprintf(L"read:%d\n",input_from_file[1]);
+    // wprintf(L"read:%d\n",input_from_file[2]);
+    // wprintf(L"read:%d\n",input_from_file[3]);
+    // wprintf(L"read:%d\n",input_from_file[4]);
+    // wprintf(L"read:%d\n",input_from_file[5]);
+    // wprintf(L"read:%d\n",input_from_file[6]);
+    // wprintf(L"read:%d\n",input_from_file[7]);
+
+    SystemTable->BootServices->SetWatchdogTimer(0, 0, 0, NULL);
 
     // check the presence of VMX support
     uint32_t ecx;
@@ -607,6 +777,7 @@ error_vmx_not_supported:
 
 exit:
     putws(L"Press any key to go back to the UEFI menu\r\n");
+    SystemTable->RuntimeServices->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
     getwchar();
     return EFI_SUCCESS;
 }
