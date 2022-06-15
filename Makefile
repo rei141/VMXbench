@@ -10,7 +10,7 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
-QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -smp 1
+QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 512 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -smp 1
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
