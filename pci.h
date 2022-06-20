@@ -1,0 +1,29 @@
+    uint16_t kConfigAddress = 0x0cf8;
+    uint16_t kConfigData = 0x0cfc;
+    struct ClassCode {
+    uint8_t base, sub, interface;} typedef ClassCode;
+struct Device {
+    uint8_t bus, device, function, header_type;
+    ClassCode class_code;
+  }typedef Device;
+
+//     inline uint16_t ReadVendorId(const Device& dev) {
+//     return ReadVendorId(dev.bus, dev.device, dev.function);
+//   }
+   void WriteAddress(uint32_t address);
+   void WriteData(uint32_t value);
+    uint32_t ReadData();
+  uint16_t ReadVendorId(uint8_t bus, uint8_t device, uint8_t function);
+  
+  uint16_t ReadDeviceId(uint8_t bus, uint8_t device, uint8_t function);
+
+  uint8_t ReadHeaderType(uint8_t bus, uint8_t device, uint8_t function);
+    uint32_t ReadConfReg(Device dev, uint8_t reg_addr);
+
+  void WriteConfReg(Device dev, uint8_t reg_addr, uint32_t value);
+    uint32_t ReadBusNumbers(uint8_t bus, uint8_t device, uint8_t function);
+    int IsSingleFunctionDevice(uint8_t header_type);
+int ScanAllBus();
+
+int num_device;
+Device devices[32];

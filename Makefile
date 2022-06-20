@@ -5,12 +5,16 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
          -Wl,--subsystem,10 \
          -e EfiMain \
          -O6 \
-		 -I ./uefi-headers/Include -I ./uefi-headers/Include/X64
+		 -I ./uefi-headers/Include -I ./uefi-headers/Include/X64 -I ./MdeModulePkg \
+		 -I ./uefi-headers/Library/UefiBootServicesTableLib
 
 QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
-QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 512 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -smp 1
+QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 512 \
+    -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
+    -device ivshmem-plain,memdev=hostmem \
+	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot -smp 1
 
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)

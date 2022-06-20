@@ -18,7 +18,6 @@
 #pragma GCC            optimize("O0")
 
 int main(int argc, char** argv) {
-    __AFL_INIT();
     int ret;
     char *qemu_command = "/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
     char * arg[] = {"/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64","-nodefaults", "-machine", "accel=kvm", "-cpu", "host", "-m", "128", "-bios" ,"OVMF.fd", "-hda", "json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }", "-nographic" ,"-serial" ,"mon:stdio", "-no-reboot", "-smp", "1",NULL};
@@ -27,9 +26,9 @@ int main(int argc, char** argv) {
     const char *afl_shm_id_str = getenv("__AFL_SHM_ID");
     sem_t *sem;
     sem_unlink("/sem");
-    sem = sem_open("/sem", O_CREAT, FILE_MODE,1); 
+    sem = sem_open("/sem", O_CREAT, FILE_MODE,0); 
     // printf("hello\n");
-    sem_wait(sem);
+    // sem_wait(sem);
 
     pid_t pid;
     int status;
@@ -43,8 +42,8 @@ int main(int argc, char** argv) {
         int ws;
         pid_t pid = -1;
         int options = 0;
-        while (__AFL_LOOP(10000)) {
-            sem_wait(sem);
+        __AFL_INIT();
+        while (__AFL_LOOP(100)) {
             ret = system("rm kvm_coverage kvm_intel_coverage -f");
             uint16_t buf[4096/sizeof(uint16_t)];
             FILE * afl_input = fopen("./afl_input", "rb");
@@ -52,6 +51,7 @@ int main(int argc, char** argv) {
             int n = fread(0, buf,sizeof(buf),afl_input);
             fclose(afl_input);
             
+            sem_wait(sem);
             FILE * input = fopen("image/input", "w");
             fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
             fclose(input);

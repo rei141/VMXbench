@@ -4,8 +4,11 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <semaphore.h> 
+#include <fcntl.h>
 // #include <process.h>
 
+#define FILE_MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
 int main(int argc, char** argv) {
     int ret;
     char *qemu_command = "/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
@@ -16,6 +19,11 @@ int main(int argc, char** argv) {
         FILE * f = fopen("hoge","w");
         fclose(f);
     }
+    // sem_t *sem;
+    // sem_unlink("/sem");
+    // sem = sem_open("/sem", O_CREAT, FILE_MODE,0); 
+    // sem_wait(sem);
+    // printf("hello\n");
     struct tm tm;
     char rm1[100];
     char * arg[] = {"/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64","-nodefaults", "-machine", "accel=kvm", "-cpu", "host", "-m", "128", "-bios" ,"OVMF.fd", "-hda", "json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }", "-nographic" ,"-serial" ,"mon:stdio", "-no-reboot", "-smp", "1",NULL};
@@ -25,7 +33,12 @@ int main(int argc, char** argv) {
 
     uint16_t buf[4096/sizeof(uint16_t)];
 
-    int n = read(0, buf,sizeof(buf));
+    // int n = read(0, buf,sizeof(buf));
+
+    FILE * in = fopen("input/random_input", "rb");
+
+    fread(buf, sizeof(uint16_t), 4096/sizeof(uint16_t),in);
+    fclose(in);
 
     FILE * input = fopen("image/input", "w");
     fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), input);

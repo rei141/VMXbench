@@ -33,8 +33,21 @@
 
 #include <stdint.h>
 #include <Uefi.h>
-#include <Library/UefiLib.h>
+// #include <Uefi/UefiSpec.h>
 
+#include <Library/UefiLib.h>
+#include <Protocol/PciIo.h>
+#include <Protocol/DriverBinding.h>
+// #include <IndustryStandard/Pci.h>
+// #include <Protocol/DriverBinding.h>
+#include <Protocol/PciRootBridgeIo.h>
+#include <Protocol/DevicePath.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Protocol/PciRootBridgeIo.h>
+#include <IndustryStandard/Pci22.h>
+#include "pci.c"
+// #include <Library/ShellLib.h>
+// #include <Library/UefiShellDebug1CommandsLib/Pci.h>
 /** ***************************************************************************
  * @section section_uefi Section 1. UEFI definitions
  * This section contains several basic UEFI type and function definitions.
@@ -286,9 +299,10 @@ static inline uint64_t vmcall_with_vmcall_number(uint64_t vmcall_num)
  *************************************************************************** */
 
 static int env[28];
-// static int index;
+
 static uint64_t tsc_exit[10], tsc_entry[10];
 uint16_t input_from_file[4096 / sizeof(uint16_t)];
+
 EFI_STATUS read_input_from_file(EFI_SYSTEM_TABLE *SystemTable) {
     EFI_STATUS Status;
     EFI_GUID SimpleFileSystemProtocolGuid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
@@ -388,6 +402,100 @@ uint16_t vmcs_index[] = {0x0000,0x0002,0x0004,0x0800,0x0802,0x0804,0x0806,0x0808
 0x6818,0x681a,0x681c,0x681e,0x6820,0x6822,0x6824,0x6826,0x6c00,0x6c02,0x6c04,0x6c06,0x6c08,0x6c0a,0x6c0c, \
 0x6c0e,0x6c10,0x6c12,0x6c14,0x6c16};
 // int afl_count = 1;
+// void host_entry(uint64_t arg)
+// {
+//     // tsc_exit[index] = rdtsc() - arg;
+//     uint64_t reason = vmread(0x4402);
+//     if (reason == 18) {
+// 	if (arg == 0) {
+//         // print_exitreason(reason);
+//         wprintf(L"goodbye:)\n");
+//         __builtin_longjmp(env, 1);
+// 	}
+//     if (arg == 1) {
+//         for(int i = 0; i < 2; i++){
+//         vmcall_with_vmcall_number(13);
+        
+//         EFI_STATUS Status = read_input_from_file(SystemTable);
+//             if (EFI_ERROR(Status)) {
+//         wprintf(L"read_input_from_file failed\n");
+//         __builtin_longjmp(env, 1);
+//         }
+
+//         wprintf(L"Start fuzzing...\n");
+//         // for (int i = 0; i < 50; ++i) {
+//         //     wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
+//         // }
+        
+//         wprintf(L"vmread/write start\n");
+//         for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+//         // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
+//             uint16_t index = input_from_file[i];
+//             uint16_t windex = input_from_file[i + 1];
+//             uint64_t wvalue = (uint64_t)input_from_file[i + 2];
+//             // if (windex == 0x681e || windex == 0x440c||windex==0x6c16){
+//             //     // wprintf(L"opps\n");
+//             // }
+//             windex = windex%152;
+//             // windex += 90;
+//             // windex = 150 + i%5;
+
+//             // wprintf(L"%d\n",windex);
+//             // uint16_t windex1 = vmcs_index[windex+1];
+//             // uint16_t windex2 = vmcs_index[windex+2];
+//             // uint16_t windex3 = vmcs_index[windex+3];
+//             // uint16_t windex4 = vmcs_index[windex+4];
+//             // uint16_t windex5 = vmcs_index[windex+5];
+//             windex = vmcs_index[windex];
+// // /*
+//             if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || 
+//             windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 
+//             || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a 
+//             || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 
+//             || windex == 0x4010 || windex == 0x400e ){
+//                 // wprintf(L"opps\n");
+//                 // wprintf(L"PPPPPPP\n");
+//                 continue;
+//                 // windex = 0x481c; 06
+//                 // windex = 0x4014;
+//             }
+//             // */
+//             if (windex < 0x2000) {
+//             } else if (windex < 0x4000) {
+//                 wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+//             } else if (windex < 0x6000) {
+//                 wvalue = (uint64_t)input_from_file[i+3]<<16 | wvalue;
+//             }else {
+//                 wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+//             }
+//                 // wprintf(L"%d, vmread(%x)\n", i, index);
+//                 uint64_t ret = vmread(index);
+//                 ret += 1;
+//                 // wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
+//                 vmwrite(windex, wvalue);
+//                 // vmwrite(windex1,wvalue);
+//                 // vmwrite(windex2,wvalue);
+//                 // vmwrite(windex3, wvalue);
+//                 // // wprintf(L"%x\n",windex);
+//                 // vmwrite(windex4,wvalue);
+//                 // vmwrite(windex5,wvalue);
+//         }
+//         wprintf(L"vmread/write end\n");
+//         // vmcall_with_vmcall_number(13);
+//         }
+//     }
+// 	// print_results();
+//     uint64_t rip = vmread(0x681E); // Guest RIP
+//     uint64_t len = vmread(0x440C); // VM-exit instruction length
+//     vmwrite(0x681E, rip + len);
+//     __builtin_longjmp(env, 1);
+//     return ;
+//     } else {
+// 	print_exitreason(reason);
+//     }
+// }
+// EFI_SYSTEM_TABLE *gBS;
+uint16_t * input_buf;
 void host_entry(uint64_t arg)
 {
     // tsc_exit[index] = rdtsc() - arg;
@@ -399,14 +507,27 @@ void host_entry(uint64_t arg)
         __builtin_longjmp(env, 1);
 	}
     if (arg == 1) {
-        for(int i = 0; i < 10000; i++){
+        input_buf[0x1000] = 0xdead;
+        // input_buf[1] = 0xbeaf;
+        unsigned long long count = 0;
+        while(1){
+        // input_buf[3000] = 400;
         vmcall_with_vmcall_number(13);
-        EFI_STATUS Status = read_input_from_file(SystemTable);
-            if (EFI_ERROR(Status)) {
-        wprintf(L"read_input_from_file failed\n");
-        __builtin_longjmp(env, 1);
-    }
-    
+        wprintf(L"%d\n",count++);
+
+        uint16_t flag = input_buf[4000];
+        while(1){
+            flag = input_buf[4000];
+            // wprintf(L"%d",flag);
+            SystemTable->BootServices->Stall(10);
+            if(flag != 0){
+                break;
+            }
+        }
+        input_buf[4000] = 0;
+        // wprintf(L"a\n");
+
+
         wprintf(L"Start fuzzing...\n");
         // for (int i = 0; i < 50; ++i) {
         //     wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
@@ -415,9 +536,9 @@ void host_entry(uint64_t arg)
         wprintf(L"vmread/write start\n");
         for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
         // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
-            uint16_t index = input_from_file[i];
-            uint16_t windex = input_from_file[i + 1];
-            uint64_t wvalue = (uint64_t)input_from_file[i + 2];
+            uint16_t index = input_buf[i];
+            uint16_t windex = input_buf[i + 1];
+            uint64_t wvalue = (uint64_t)input_buf[i + 2];
             // if (windex == 0x681e || windex == 0x440c||windex==0x6c16){
             //     // wprintf(L"opps\n");
             // }
@@ -433,10 +554,10 @@ void host_entry(uint64_t arg)
             // uint16_t windex5 = vmcs_index[windex+5];
             windex = vmcs_index[windex];
 // /*
-            if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || \
-            windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 \
-            || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a \
-            || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 \
+            if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || 
+            windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 
+            || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a 
+            || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 
             || windex == 0x4010 || windex == 0x400e ){
                 // wprintf(L"opps\n");
                 // wprintf(L"PPPPPPP\n");
@@ -447,16 +568,16 @@ void host_entry(uint64_t arg)
             // */
             if (windex < 0x2000) {
             } else if (windex < 0x4000) {
-                wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+                wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
             } else if (windex < 0x6000) {
-                wvalue = (uint64_t)input_from_file[i+3]<<16 | wvalue;
+                wvalue = (uint64_t)input_buf[i+3]<<16 | wvalue;
             }else {
-                wvalue = (uint64_t)input_from_file[i+3]<<48 | (uint64_t)input_from_file[i+4] << 32 | (uint64_t)input_from_file[i+5] << 16|wvalue; 
+                wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
             }
                 // wprintf(L"%d, vmread(%x)\n", i, index);
                 uint64_t ret = vmread(index);
                 ret += 1;
-                wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
+                // wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
                 vmwrite(windex, wvalue);
                 // vmwrite(windex1,wvalue);
                 // vmwrite(windex2,wvalue);
@@ -466,6 +587,7 @@ void host_entry(uint64_t arg)
                 // vmwrite(windex5,wvalue);
         }
         wprintf(L"vmread/write end\n");
+        input_buf[4001] = 1;
         // vmcall_with_vmcall_number(13);
         }
     }
@@ -531,12 +653,13 @@ void print_registers(struct registers *regs)
     wprintf(L"IA32_FEATURE_CONTROL: %016x\n", rdmsr(0x3a));
 }
 
+
+
 char vmxon_region[4096] __attribute__ ((aligned (4096)));
 char vmcs[4096] __attribute__ ((aligned (4096)));
 char host_stack[4096] __attribute__ ((aligned (4096)));
 char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
-
 
 
 
@@ -552,19 +675,32 @@ EfiMain (
     struct registers regs;
 
     SystemTable = _SystemTable;
-    wprintf(L"Starting VMXbench ...\r\n");
-    // wprintf(L"read:%d\n",input_from_file[0]);
-    // vmcall_with_vmcall_number(13);
-    
 
-    // wprintf(L"read:%d\n",input_from_file[0]);
-    // wprintf(L"read:%d\n",input_from_file[1]);
-    // wprintf(L"read:%d\n",input_from_file[2]);
-    // wprintf(L"read:%d\n",input_from_file[3]);
-    // wprintf(L"read:%d\n",input_from_file[4]);
-    // wprintf(L"read:%d\n",input_from_file[5]);
-    // wprintf(L"read:%d\n",input_from_file[6]);
-    // wprintf(L"read:%d\n",input_from_file[7]);
+    wprintf(L"Starting VMXbench ...\r\n");
+    // int err = ScanAllBus();
+    // wprintf(L"%d\n",err);
+    uint8_t ivshm_dev = 0;
+    uint8_t dev = 0;
+    for(dev=0; dev < 32; dev++){
+        uint16_t vendor_id = ReadVendorId(0,dev,0);
+        if (vendor_id == 0x1af4){
+            ivshm_dev = dev;
+            wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\n",0,dev,0, vendor_id);
+            break;
+        }
+    }
+    wprintf(L"%d, dev %d\n",(ivshm_dev==dev),ivshm_dev);
+    // ivshm_dev++;
+    uintptr_t bar0 = ReadBar(0,dev,0, 0);
+    uintptr_t bar1 = ReadBar(0,dev,0, 1);
+    uintptr_t bar2 = ReadBar(0,dev,0, 2);
+    wprintf(L"bar0:%x, bar1:%x, bar2:%x\n",bar0,bar1,bar2);
+    input_buf = (void *) (bar2);
+
+    for(int i = 0; i < 20; i++){
+    wprintf(L"buf[%d] = %x\n", i,input_buf[i]);}
+    input_buf[3000] = 0xdead;
+    // return 1;
 
     SystemTable->BootServices->SetWatchdogTimer(0, 0, 0, NULL);
 
