@@ -283,6 +283,41 @@ static inline uint64_t vmcall(uint64_t arg)
 		  : "memory", "rdx", "r8", "r9", "r10", "r11");
     return ret;
 }
+static inline void vmclear(uint64_t *arg)
+{
+    asm volatile ("vmclear %0"
+		  : 
+          : "m"(arg)
+          : "cc");
+}
+static inline void vmptrld(uint64_t *arg)
+{
+    asm volatile ("vmptrld %0"
+		  : 
+          : "m"(arg)
+          : "cc");
+}
+static inline void vmptrst(uint64_t *arg)
+{
+    asm volatile ("vmptrst %0"
+		  : "=m" (arg)
+          :
+          : "cc");
+}
+static inline void invept(uint64_t type, uint64_t * disc)
+{
+    asm volatile ("invept %%rdx, %%rax"
+		  :
+		  : "a" (type), "d" (disc)
+		  : "cc", "memory");
+}
+static inline void invvpid(uint64_t type, uint64_t * disc)
+{
+    asm volatile ("invvpid %%rdx, %%rax"
+		  :
+		  : "a" (type), "d" (disc)
+		  : "cc", "memory");
+}
 static inline uint64_t vmcall_with_vmcall_number(uint64_t vmcall_num)
 {
     uint64_t ret;
@@ -509,86 +544,85 @@ void host_entry(uint64_t arg)
     if (arg == 1) {
         input_buf[0x1000] = 0xdead;
         // input_buf[1] = 0xbeaf;
-        unsigned long long count = 0;
+        // unsigned long long count = 0;
+        uint16_t flag;
+        uint16_t index;
+        uint16_t windex;
+        uint64_t wvalue;
         while(1){
-        // input_buf[3000] = 400;
-        vmcall_with_vmcall_number(13);
-        wprintf(L"%d\n",count++);
+            // input_buf[3000] = 400;
+            vmcall_with_vmcall_number(13);
+            // count++;
+            // if (count %1000 == 0)
+                // count++;
+                // wprintf(L"%d\n",count);
 
-        uint16_t flag = input_buf[4000];
-        while(1){
-            flag = input_buf[4000];
-            // wprintf(L"%d",flag);
-            SystemTable->BootServices->Stall(10);
-            if(flag != 0){
-                break;
+            // flag = input_buf[4000];
+            while(1){
+                flag = input_buf[4000];
+                // wprintf(L"%d",flag);
+                SystemTable->BootServices->Stall(10);
+                if(flag != 0){
+                    break;
+                }
             }
-        }
-        input_buf[4000] = 0;
-        // wprintf(L"a\n");
+            input_buf[4000] = 0;
+            // wprintf(L"a\n");
 
 
-        wprintf(L"Start fuzzing...\n");
-        // for (int i = 0; i < 50; ++i) {
-        //     wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
-        // }
-        
-        wprintf(L"vmread/write start\n");
-        for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
-        // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
-            uint16_t index = input_buf[i];
-            uint16_t windex = input_buf[i + 1];
-            uint64_t wvalue = (uint64_t)input_buf[i + 2];
-            // if (windex == 0x681e || windex == 0x440c||windex==0x6c16){
-            //     // wprintf(L"opps\n");
+            // wprintf(L"Start fuzzing...\n");
+            // for (int i = 0; i < 50; ++i) {
+            //     wprintf(L"input_from_file[%d] = %d\n", i, (int)input_from_file[i]);
             // }
-            windex = windex%152;
-            // windex += 90;
-            // windex = 150 + i%5;
 
-            // wprintf(L"%d\n",windex);
-            // uint16_t windex1 = vmcs_index[windex+1];
-            // uint16_t windex2 = vmcs_index[windex+2];
-            // uint16_t windex3 = vmcs_index[windex+3];
-            // uint16_t windex4 = vmcs_index[windex+4];
-            // uint16_t windex5 = vmcs_index[windex+5];
-            windex = vmcs_index[windex];
-// /*
-            if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || 
-            windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 
-            || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a 
-            || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 
-            || windex == 0x4010 || windex == 0x400e ){
-                // wprintf(L"opps\n");
-                // wprintf(L"PPPPPPP\n");
-                continue;
-                // windex = 0x481c; 06
-                // windex = 0x4014;
+            // wprintf(L"vmread/write start\n");
+            for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+            // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
+                index = input_buf[i];
+                windex = input_buf[i + 1];
+                wvalue = (uint64_t)input_buf[i + 2];
+                // uint16_t windex2 = vmcs_index[windex+2];
+                // uint16_t windex3 = vmcs_index[windex+3];
+                // uint16_t windex4 = vmcs_index[windex+4];
+                // uint16_t windex5 = vmcs_index[windex+5];
+                windex = windex%152;
+                windex = vmcs_index[windex];
+// /*   
+                // if (windex == 0x400a ||windex == 0x681e ||windex == 0x400c || windex == 0x4012 || 
+                // windex == 0x440c||windex >= 0x6c00||windex == 0x4002 || windex == 0x4000 || windex == 0xc02 
+                // || windex == 0xc00 || windex == 0xc04 || windex == 0xc06 || windex == 0xc08 || windex == 0xc0a 
+                // || windex == 0xc0c ||  windex == 0x2c00 || windex == 0x2c02 || windex == 0x4016|| windex == 0x4014 
+                // || windex == 0x4010 || windex == 0x400e ){
+                    // wprintf(L"opps\n");
+                    // wprintf(L"PPPPPPP\n");
+                    // continue;
+                    // windex = 0x481c; 06
+                    // windex = 0x4014;
+                // }
+                // */
+                if (windex < 0x2000) {
+                } else if (windex < 0x4000) {
+                    wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
+                } else if (windex < 0x6000) {
+                    wvalue = (uint64_t)input_buf[i+3]<<16 | wvalue;
+                }else {
+                    wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
+                }
+                    // wprintf(L"%d, vmread(%x)\n", i, index);
+                    uint64_t ret = vmread(index);
+                    ret += 1;
+                    // wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
+                    vmwrite(windex, wvalue);
+                    // vmwrite(windex1,wvalue);
+                    // vmwrite(windex2,wvalue);
+                    // vmwrite(windex3, wvalue);
+                    // // wprintf(L"%x\n",windex);
+                    // vmwrite(windex4,wvalue);
+                    // vmwrite(windex5,wvalue);
             }
-            // */
-            if (windex < 0x2000) {
-            } else if (windex < 0x4000) {
-                wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
-            } else if (windex < 0x6000) {
-                wvalue = (uint64_t)input_buf[i+3]<<16 | wvalue;
-            }else {
-                wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16|wvalue; 
-            }
-                // wprintf(L"%d, vmread(%x)\n", i, index);
-                uint64_t ret = vmread(index);
-                ret += 1;
-                // wprintf(L"%d, vmwrite(%x, %x)\n", i, windex, wvalue);
-                vmwrite(windex, wvalue);
-                // vmwrite(windex1,wvalue);
-                // vmwrite(windex2,wvalue);
-                // vmwrite(windex3, wvalue);
-                // // wprintf(L"%x\n",windex);
-                // vmwrite(windex4,wvalue);
-                // vmwrite(windex5,wvalue);
-        }
-        wprintf(L"vmread/write end\n");
-        input_buf[4001] = 1;
-        // vmcall_with_vmcall_number(13);
+            // wprintf(L"vmread/write end\n");
+            input_buf[4001] = 1;
+            // vmcall_with_vmcall_number(13);
         }
     }
 	// print_results();

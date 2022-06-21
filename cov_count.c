@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
-uint8_t cov[0x60000];
+uint8_t cov[0xae000];
 int main (void){
     // FILE * f = 
     DIR *dir;
@@ -23,11 +23,11 @@ int main (void){
 			printf("error");
 			exit(1);
 		}
-		
-        int n = fread(cov, sizeof(uint8_t), 0x60000, f);
+		memset(cov,0,0xae000);
+        int n = fread(cov, sizeof(uint8_t), 0xae000, f);
 		int c= 0 ;
-		printf("hello\n");
-		for(int i = 0; i < 0x60000;i++){
+		// printf("hello\n");
+		for(int i = 0; i < 0xae000;i++){
 			c += cov[i];
 		}
 		fprintf(result,"%s %d\n", dp->d_name, c);
