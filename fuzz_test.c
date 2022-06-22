@@ -58,6 +58,14 @@ int main(int argc, char** argv) {
     // ivmshm[3000]=0xdead;
 
     // memcpy(ivmshm,)
+    int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (bitmap_fd == -1)
+        perror("open"), exit(1);
+    uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
+                                    PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
+    if ((void *)afl_bitmap == MAP_FAILED)
+        perror("mmap"), exit(1);
+    memset(afl_bitmap,0,65536);
 
     ivmshm[4000] = 1;
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
@@ -72,16 +80,16 @@ int main(int argc, char** argv) {
         }
     ivmshm[4001] = 0;
 
-    int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-    if (bitmap_fd == -1)
-        perror("open"), exit(1);
-    ftruncate(bitmap_fd, 65536);
+    // int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    // if (bitmap_fd == -1)
+    //     perror("open"), exit(1);
+    // ftruncate(bitmap_fd, 65536);
     // uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
                                     // PROT_READ, MAP_SHARED, bitmap_fd, 0);
-    uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
-                                    PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
-    if ((void *)afl_bitmap == MAP_FAILED)
-        perror("mmap"), exit(1);
+    // uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
+    //                                 PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
+    // if ((void *)afl_bitmap == MAP_FAILED)
+    //     perror("mmap"), exit(1);
 
     if (afl_shm_id_str != NULL) {
     memcpy(afl_area_ptr,afl_bitmap,65536);
@@ -89,7 +97,7 @@ int main(int argc, char** argv) {
     }
     // if (munmap(afl_bitmap, 65536))
     //     perror("munmap"), exit(1);
-    memset(afl_bitmap,0,65536);
+    // memset(afl_bitmap,0,65536);
     close(fd);
     close(bitmap_fd);
     if (munmap(ivmshm-6, 1024*1024))

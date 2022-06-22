@@ -304,18 +304,22 @@ static inline void vmptrst(uint64_t *arg)
           :
           : "cc");
 }
-static inline void invept(uint64_t type, uint64_t * disc)
+typedef struct {
+	uint64_t ptr;
+	uint64_t rsvd;
+} invept_t;
+static inline void invept(uint64_t type, const invept_t *i)
 {
-    asm volatile ("invept %%rdx, %%rax"
+    asm volatile (".byte 0x66, 0x0f, 0x38, 0x80, 0x0A"
 		  :
-		  : "a" (type), "d" (disc)
+		  : "c" (type), "d" (i)
 		  : "cc", "memory");
 }
-static inline void invvpid(uint64_t type, uint64_t * disc)
+static inline void invvpid(uint64_t type, const invept_t *i)
 {
-    asm volatile ("invvpid %%rdx, %%rax"
+    asm volatile (".byte 0x66, 0x0f, 0x38, 0x81, 0x0A"
 		  :
-		  : "a" (type), "d" (disc)
+		  : "c" (type), "d" (i)
 		  : "cc", "memory");
 }
 static inline uint64_t vmcall_with_vmcall_number(uint64_t vmcall_num)
@@ -542,16 +546,16 @@ void host_entry(uint64_t arg)
         __builtin_longjmp(env, 1);
 	}
     if (arg == 1) {
-        input_buf[0x1000] = 0xdead;
+        // input_buf[0x1000] = 0xdead;
         // input_buf[1] = 0xbeaf;
         // unsigned long long count = 0;
+        vmcall_with_vmcall_number(13);
         uint16_t flag;
         uint16_t index;
         uint16_t windex;
         uint64_t wvalue;
         while(1){
             // input_buf[3000] = 400;
-            vmcall_with_vmcall_number(13);
             // count++;
             // if (count %1000 == 0)
                 // count++;
@@ -576,15 +580,27 @@ void host_entry(uint64_t arg)
             // }
 
             // wprintf(L"vmread/write start\n");
-            for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
-            // for (int i = 1560; i < 3600/sizeof(uint16_t); i += 6) {
+            // for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+            for (int i = 0; i < 1000/sizeof(uint16_t); i += 6) {
                 index = input_buf[i];
+
+                if ((index & 0x8000) == 0){
+                    windex = (uint64_t)(input_buf[i]%4);
+                    wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16| (uint64_t)input_buf[i+2]; 
+                    invept_t inv;
+                    inv.rsvd = 0;
+                    inv.ptr = wvalue;
+                    // i.ptr = wvalue;
+                    invept((uint64_t)(input_buf[i]%2 + 1),&inv);
+                    inv.rsvd = wvalue;
+                    inv.ptr = 0;
+                    inv.ptr = (uint64_t)input_buf[i+1];
+                    invvpid((uint64_t)(input_buf[i]%4),&inv);
+                    continue;
+                }
+
                 windex = input_buf[i + 1];
                 wvalue = (uint64_t)input_buf[i + 2];
-                // uint16_t windex2 = vmcs_index[windex+2];
-                // uint16_t windex3 = vmcs_index[windex+3];
-                // uint16_t windex4 = vmcs_index[windex+4];
-                // uint16_t windex5 = vmcs_index[windex+5];
                 windex = windex%152;
                 windex = vmcs_index[windex];
 // /*   
@@ -621,8 +637,8 @@ void host_entry(uint64_t arg)
                     // vmwrite(windex5,wvalue);
             }
             // wprintf(L"vmread/write end\n");
+            vmcall_with_vmcall_number(13);
             input_buf[4001] = 1;
-            // vmcall_with_vmcall_number(13);
         }
     }
 	// print_results();
@@ -794,7 +810,7 @@ EfiMain (
     asm volatile ("vmptrld %1" : "=@ccbe" (error) : "m" (ptr));
     if (error)
 	goto error_vmptrld;
-
+    vmcall_with_vmcall_number(13);
     // initialize control fields
     uint32_t apply_allowed_settings(uint32_t value, uint64_t msr_index)
     {
