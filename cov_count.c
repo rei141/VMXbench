@@ -8,7 +8,7 @@ int main (void){
     // FILE * f = 
     DIR *dir;
     struct dirent *dp;
-	char path[64] = "./record/";
+	char path[64] = "/home/ishii/nestedFuzz/VMXbench/record/";
 
 	dir=opendir(path);
 		FILE * result = fopen("result","w");
@@ -17,7 +17,7 @@ int main (void){
 			continue;
 		}
 		printf("%s\n",dp->d_name);
-		sprintf(path,"./record/%s",dp->d_name);
+		sprintf(path,"/home/ishii/nestedFuzz/VMXbench/record/%s",dp->d_name);
         FILE * f = fopen(path,"rb");
 		if (f==NULL){
 			printf("error");
