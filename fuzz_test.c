@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
     ivmshm[4000] = 1;
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-    
+    // printf("a");
     uint16_t flag= ivmshm[4001];
         while(1){
             flag = ivmshm[4001];
