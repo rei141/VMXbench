@@ -1,5 +1,8 @@
-    uint16_t kConfigAddress = 0x0cf8;
-    uint16_t kConfigData = 0x0cfc;
+#pragma once
+#include <stdint.h>
+    
+    
+
     struct ClassCode {
     uint8_t base, sub, interface;} typedef ClassCode;
 struct Device {
@@ -24,6 +27,4 @@ struct Device {
     uint32_t ReadBusNumbers(uint8_t bus, uint8_t device, uint8_t function);
     int IsSingleFunctionDevice(uint8_t header_type);
 int ScanAllBus();
-
-int num_device;
-Device devices[32];
+  uint32_t ReadBar(uint8_t bus, uint8_t device, uint8_t function,uint8_t bar);

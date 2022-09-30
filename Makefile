@@ -4,14 +4,13 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
          -e EfiMain \
-		 -I ./uefi-headers/Include -I ./uefi-headers/Include/X64 -I ./MdeModulePkg \
-		 -I ./uefi-headers/Library/UefiBootServicesTableLib
+ 		-I ./uefi-headers/Include -I ./uefi-headers/Include/X64 
 
 QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 
-QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm -cpu host,vmx=on -m 512 \
+QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm -cpu host,+x2apic,vmx=on -m 1024 \
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
@@ -22,9 +21,9 @@ ifeq ($(NESTED),N)
 else
 	ENABLE_NESTED=
 endif
-
-%.efi: %.c
-	$(CC) $(CFLAGS) $< -o $@
+SRC = main.c vmx.c pci.c uefi.c
+main.efi: $(SRC)
+	$(CC) $(CFLAGS) $^ -o $@
 
 .PHONY: all enable_nested disable_nested qemu clean
 
@@ -35,7 +34,7 @@ qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe -r kvm_intel;
 	sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1;
 	sudo $(QEMU) $(QEMU_OPTS)
-
+# sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1;
 OVMF.fd:
 	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip
 	unzip OVMF-X64-r15214.zip OVMF.fd

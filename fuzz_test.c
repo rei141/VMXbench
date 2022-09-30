@@ -54,9 +54,9 @@ int main(int argc, char** argv) {
     FILE * input = fopen("afl_input", "rb");
     fread(ivmshm, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
     fclose(input);
+    printf("hello\n");
     // sem_post(sem);
     // ivmshm[3000]=0xdead;
-
     // memcpy(ivmshm,)
     int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if (bitmap_fd == -1)
