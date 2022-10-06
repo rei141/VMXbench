@@ -1,4 +1,3 @@
-#pragma once
 /////////////////////////////////////////////////////////////////////////
 // $Id: vmx.h 14086 2021-01-30 08:35:35Z sshwarts $
 /////////////////////////////////////////////////////////////////////////
@@ -24,28 +23,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "uefi.h"
-
-#define BX_SUPPORT_VMX 2
-#define BX_SUPPORT_X86_64 1
-#define BX_SUPPORT_CET 1
-#define BX_SUPPORT_PKEYS 1
-typedef uint64_t bx_phy_address;
-
-#if BX_SUPPORT_X86_64
-typedef uint64_t bx_address;
-#define BX_LIN_ADDRESS_WIDTH 48
-#else
-typedef uint32_t bx_address;
-#define BX_LIN_ADDRESS_WIDTH 32
-#endif
-
-#ifndef _BX_VMX_INTEL_H_
-#define _BX_VMX_INTEL_H_
-
-#define VMX_VMCS_AREA_SIZE   4096
-#define BX_CONST64(x)  (x)
-
-
 
 /** ***************************************************************************
  * @section section_vmx Section 2. VMX definitions
@@ -76,9 +53,9 @@ static inline void wrmsr(uint32_t index, uint64_t value)
 		  : "c" (index), "a" (eax), "d" (edx));
 }
 
-static inline uint32_t vmread(uint32_t index)
+static inline uint64_t vmread(uint32_t index)
 {
-    uint32_t value;
+    uint64_t value;
     asm volatile ("vmread %%rax, %%rdx"
 		  : "=d" (value)
 		  : "a" (index)
@@ -145,89 +122,95 @@ static inline void invvpid(uint64_t type, const invept_t *i)
 		  : "c" (type), "d" (i)
 		  : "cc", "memory");
 }
-bool isMemTypeValidMTRR(unsigned memtype);
-bool isMemTypeValidPAT(unsigned memtype);
-bool isValidMSR_PAT(uint64_t pat_val);
-bool is_invalid_cet_control(bx_address val);
-bool CheckPDPTR(uint64_t *pdptr);
-bool CheckPDPTR_CR3(bx_phy_address cr3_val);
 
+#define BX_SUPPORT_VMX 2
+#define BX_SUPPORT_X86_64 1
+#define BX_SUPPORT_CET 1
+#define BX_SUPPORT_PKEYS 1
+#define BX_CPU_LEVEL 6
 
-// VMCS pointer is always 64-bit variable
-// const uint64_t BX_INVALID_VMCSPTR = BX_CONST64(0xFFFFFFFFFFFFFFFF);
-#define BX_INVALID_VMCSPTR (BX_CONST64(0xFFFFFFFFFFFFFFFF))
+#if BX_SUPPORT_X86_64
+typedef uint64_t bx_address;
+#define BX_LIN_ADDRESS_WIDTH 48
+#else
+typedef uint32_t bx_address;
+#define BX_LIN_ADDRESS_WIDTH 32
+#endif
+
+#if BX_PHY_ADDRESS_LONG
+typedef uint64_t bx_phy_address;
+#if BX_CPU_LEVEL == 5
+  #define BX_PHY_ADDRESS_WIDTH 36
+#else
+  #define BX_PHY_ADDRESS_WIDTH 40
+#endif
+#else
+typedef uint32_t bx_phy_address;
+#define BX_PHY_ADDRESS_WIDTH 32
+#endif
+
 #define BX_CPU_HANDLED_EXCEPTIONS 32
-#define BX_PHY_ADDRESS_WIDTH 40
 #define BX_PHY_ADDRESS_MASK ((((uint64_t)(1)) << BX_PHY_ADDRESS_WIDTH) - 1)
 #define BX_PHY_ADDRESS_RESERVED_BITS (~BX_PHY_ADDRESS_MASK)
 
-// bits supported in IA32_FEATURE_CONTROL MSR
+// VMCS pointer is always 64-bit variable
+#define BX_INVALID_VMCSPTR 0xFFFFFFFFFFFFFFFF
 
-/*
-const uint32_t BX_IA32_FEATURE_CONTROL_LOCK_BIT = 0x1;
-const uint32_t BX_IA32_FEATURE_CONTROL_VMX_ENABLE_BIT = 0x4;
+#define BX_CR0_PE_MASK         (1 <<  0)
+#define BX_CR0_MP_MASK         (1 <<  1)
+#define BX_CR0_EM_MASK         (1 <<  2)
+#define BX_CR0_TS_MASK         (1 <<  3)
+#define BX_CR0_ET_MASK         (1 <<  4)
+#define BX_CR0_NE_MASK         (1 <<  5)
+#define BX_CR0_WP_MASK         (1 << 16)
+#define BX_CR0_AM_MASK         (1 << 18)
+#define BX_CR0_NW_MASK         (1 << 29)
+#define BX_CR0_CD_MASK         (1 << 30)
+#define BX_CR0_PG_MASK         (1 << 31)
 
-const uint32_t BX_IA32_FEATURE_CONTROL_BITS = (BX_IA32_FEATURE_CONTROL_LOCK_BIT | BX_IA32_FEATURE_CONTROL_VMX_ENABLE_BIT);
-*/
+#define BX_CR4_VME_MASK        (1 << 0)
+#define BX_CR4_PVI_MASK        (1 << 1)
+#define BX_CR4_TSD_MASK        (1 << 2)
+#define BX_CR4_DE_MASK         (1 << 3)
+#define BX_CR4_PSE_MASK        (1 << 4)
+#define BX_CR4_PAE_MASK        (1 << 5)
+#define BX_CR4_MCE_MASK        (1 << 6)
+#define BX_CR4_PGE_MASK        (1 << 7)
+#define BX_CR4_PCE_MASK        (1 << 8)
+#define BX_CR4_OSFXSR_MASK     (1 << 9)
+#define BX_CR4_OSXMMEXCPT_MASK (1 << 10)
+#define BX_CR4_UMIP_MASK       (1 << 11)
+#define BX_CR4_LA57_MASK       (1 << 12)
+#define BX_CR4_VMXE_MASK       (1 << 13)
+#define BX_CR4_SMXE_MASK       (1 << 14)
+#define BX_CR4_FSGSBASE_MASK   (1 << 16)
+#define BX_CR4_PCIDE_MASK      (1 << 17)
+#define BX_CR4_OSXSAVE_MASK    (1 << 18)
+#define BX_CR4_KEYLOCKER_MASK  (1 << 19)
+#define BX_CR4_SMEP_MASK       (1 << 20)
+#define BX_CR4_SMAP_MASK       (1 << 21)
+#define BX_CR4_PKE_MASK        (1 << 22)
+#define BX_CR4_CET_MASK        (1 << 23)
+#define BX_CR4_PKS_MASK        (1 << 24)
+
 struct BxExceptionInfo {
   unsigned exception_type;
   unsigned exception_class;
   bool push_error;
 };
+
 enum {
   BX_ET_BENIGN = 0,
   BX_ET_CONTRIBUTORY = 1,
   BX_ET_PAGE_FAULT = 2,
   BX_ET_DOUBLE_FAULT = 10
 };
+
 enum {
   BX_EXCEPTION_CLASS_TRAP = 0,
   BX_EXCEPTION_CLASS_FAULT = 1,
   BX_EXCEPTION_CLASS_ABORT = 2
 };
-// struct BxExceptionInfo exceptions_info[] = {
-//   /* DE */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* DB */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 02 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 }, // NMI
-//   /* BP */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_TRAP,  0 },
-//   /* OF */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_TRAP,  0 },
-//   /* BR */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* UD */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* NM */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* DF */ { BX_ET_DOUBLE_FAULT, BX_EXCEPTION_CLASS_FAULT, 1 },
-//              // coprocessor segment overrun (286,386 only)
-//   /* 09 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* TS */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* NP */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* SS */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* GP */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* PF */ { BX_ET_PAGE_FAULT,   BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* 15 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 }, // reserved
-//   /* MF */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* AC */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* MC */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_ABORT, 0 },
-//   /* XM */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* VE */ { BX_ET_PAGE_FAULT,   BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* CP */ { BX_ET_CONTRIBUTORY, BX_EXCEPTION_CLASS_FAULT, 1 },
-//   /* 22 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 23 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 24 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 25 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 26 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 27 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 28 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 29 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 },
-//   /* 30 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 }, // FIXME: SVM #SF
-//   /* 31 */ { BX_ET_BENIGN,       BX_EXCEPTION_CLASS_FAULT, 0 }
-// };
-
-
-
-
-typedef struct {
-  bx_address       base;   /* base address: 24bits=286,32bits=386,64bits=x86-64 */
-  uint16_t           limit;  /* limit, 16bits */
-} bx_global_segment_reg_t;
 
 
 // VMX error codes
@@ -262,11 +245,6 @@ enum VMX_error_code {
     VMXERR_RESERVED27 = 27,
     VMXERR_INVALID_INVEPT_INVVPID = 28
 };
-enum VMX_error_code VMenterLoadCheckVmControls(void);
-enum VMX_error_code VMenterLoadCheckHostState(void);
-uint32_t VMenterLoadCheckGuestState(uint64_t *qualification);
-
-// extern enum VMX_error_code VMenterLoadCheckVmControls(void);
 
 enum VMX_vmexit_reason {
    VMX_VMEXIT_EXCEPTION_NMI = 0,
@@ -345,6 +323,7 @@ enum VMX_vmexit_reason {
    VMX_VMEXIT_ENQCMDS_PASID = 73,
    VMX_VMEXIT_LAST_REASON
 };
+
 // exception types for interrupt method
 enum {
   BX_EXTERNAL_INTERRUPT = 0,
@@ -354,6 +333,7 @@ enum {
   BX_PRIVILEGED_SOFTWARE_INTERRUPT = 5,
   BX_SOFTWARE_EXCEPTION = 6
 };
+
 enum {
   BX_MEMTYPE_UC = 0,
   BX_MEMTYPE_WC = 1,
@@ -365,6 +345,7 @@ enum {
   BX_MEMTYPE_UC_WEAK = 7, // PAT only
   BX_MEMTYPE_INVALID = 8
 };
+
 enum BX_Exception {
   BX_DE_EXCEPTION =  0, // Divide Error (fault)
   BX_DB_EXCEPTION =  1, // Debug (fault/trap)
@@ -386,42 +367,6 @@ enum BX_Exception {
   BX_VE_EXCEPTION = 20,
   BX_CP_EXCEPTION = 21  // Control Protection (fault)
 };
-#define BX_CR0_PE_MASK         (1 <<  0)
-#define BX_CR0_MP_MASK         (1 <<  1)
-#define BX_CR0_EM_MASK         (1 <<  2)
-#define BX_CR0_TS_MASK         (1 <<  3)
-#define BX_CR0_ET_MASK         (1 <<  4)
-#define BX_CR0_NE_MASK         (1 <<  5)
-#define BX_CR0_WP_MASK         (1 << 16)
-#define BX_CR0_AM_MASK         (1 << 18)
-#define BX_CR0_NW_MASK         (1 << 29)
-#define BX_CR0_CD_MASK         (1 << 30)
-#define BX_CR0_PG_MASK         (1 << 31)
-
-#define BX_CR4_VME_MASK        (1 << 0)
-#define BX_CR4_PVI_MASK        (1 << 1)
-#define BX_CR4_TSD_MASK        (1 << 2)
-#define BX_CR4_DE_MASK         (1 << 3)
-#define BX_CR4_PSE_MASK        (1 << 4)
-#define BX_CR4_PAE_MASK        (1 << 5)
-#define BX_CR4_MCE_MASK        (1 << 6)
-#define BX_CR4_PGE_MASK        (1 << 7)
-#define BX_CR4_PCE_MASK        (1 << 8)
-#define BX_CR4_OSFXSR_MASK     (1 << 9)
-#define BX_CR4_OSXMMEXCPT_MASK (1 << 10)
-#define BX_CR4_UMIP_MASK       (1 << 11)
-#define BX_CR4_LA57_MASK       (1 << 12)
-#define BX_CR4_VMXE_MASK       (1 << 13)
-#define BX_CR4_SMXE_MASK       (1 << 14)
-#define BX_CR4_FSGSBASE_MASK   (1 << 16)
-#define BX_CR4_PCIDE_MASK      (1 << 17)
-#define BX_CR4_OSXSAVE_MASK    (1 << 18)
-#define BX_CR4_KEYLOCKER_MASK  (1 << 19)
-#define BX_CR4_SMEP_MASK       (1 << 20)
-#define BX_CR4_SMAP_MASK       (1 << 21)
-#define BX_CR4_PKE_MASK        (1 << 22)
-#define BX_CR4_CET_MASK        (1 << 23)
-#define BX_CR4_PKS_MASK        (1 << 24)
 
 // segment register encoding
 enum BxSegregs {
@@ -438,23 +383,6 @@ enum BxSegregs {
 #define GET32L(val64) ((uint32_t)(((uint64_t)(val64)) & 0xFFFFFFFF))
 #define GET32H(val64) ((uint32_t)(((uint64_t)(val64)) >> 32))
 
-/*
-#define IS_TRAP_LIKE_VMEXIT(reason) \
-      (reason == VMX_VMEXIT_TPR_THRESHOLD || \
-       reason == VMX_VMEXIT_VIRTUALIZED_EOI || \
-       reason == VMX_VMEXIT_APIC_WRITE)
-*/
-
-// VMexit on CR register access
-/*
-enum {
-   VMX_VMEXIT_CR_ACCESS_CR_WRITE = 0,
-   VMX_VMEXIT_CR_ACCESS_CR_READ,
-   VMX_VMEXIT_CR_ACCESS_CLTS,
-   VMX_VMEXIT_CR_ACCESS_LMSW
-};
-*/
-
 // VMENTRY error on loading guest state qualification
 enum VMX_vmentry_error {
    VMENTER_ERR_NO_ERROR = 0,
@@ -463,34 +391,13 @@ enum VMX_vmentry_error {
    VMENTER_ERR_GUEST_STATE_LINK_POINTER = 4
 };
 
-// VMABORT error code
-/*
-enum VMX_vmabort_code {
-   VMABORT_SAVING_GUEST_MSRS_FAILURE,
-   VMABORT_HOST_PDPTR_CORRUPTED,
-   VMABORT_VMEXIT_VMCS_CORRUPTED,
-   VMABORT_LOADING_HOST_MSRS,
-   VMABORT_VMEXIT_MACHINE_CHECK_ERROR
-};
-*/
-
-
-// VMX APIC ACCESS VMEXIT qualification
-// const uint32_t VMX_APIC_READ_INSTRUCTION_EXECUTION   = 0x0000;
-// const uint32_t VMX_APIC_WRITE_INSTRUCTION_EXECUTION  = 0x1000;
-// const uint32_t VMX_APIC_INSTRUCTION_FETCH            = 0x2000; /* won't happen because cpu::prefetch will crash */
-// const uint32_t VMX_APIC_ACCESS_DURING_EVENT_DELIVERY = 0x3000;
-
-
 // VM Functions List
 enum VMFunctions {
    VMX_VMFUNC_EPTP_SWITCHING = 0
 };
 
-// const uint64_t VMX_VMFUNC_EPTP_SWITCHING_MASK = (BX_CONST64(1) << VMX_VMFUNC_EPTP_SWITCHING);
-#define VMX_VMFUNC_EPTP_SWITCHING_MASK ((BX_CONST64(1) << VMX_VMFUNC_EPTP_SWITCHING))
-uint32_t VMX_Read_Virtual_APIC_VTPR();
-uint32_t VMXReadRevisionID(bx_phy_address pAddr);
+#define VMX_VMFUNC_EPTP_SWITCHING_MASK (1 << VMX_VMFUNC_EPTP_SWITCHING)
+
 // =============
 //  VMCS fields
 // =============
@@ -810,56 +717,8 @@ enum VMCS_Access_Rights_Format {
 #define VMCS_VMX_ABORT_FIELD_ENCODING            (0xfffffffc)
 #define VMCS_REVISION_ID_FIELD_ENCODING          (0xfffffffa)
 
-// class VMCS_Mapping {
-// private:
-//    uint32_t revision_id;
-
-//    unsigned vmcs_revision_id_field_offset;
-//    unsigned vmx_abort_field_offset;
-//    unsigned vmcs_launch_state_field_offset;
-
-//    VMCS_Access_Rights_Format ar_format; // in which form segment selectors Access Rights are stored in the VMCS
-
-//    // assume 16 VMCS field types (encoded with 4 bits: 2 bits for VMCS_FIELD_TYPE and 2 bits for VMCS_FIELD_WIDTH)
-//    unsigned vmcs_map[16][VMX_HIGHEST_VMCS_ENCODING];
-
-//    void init_generic_mapping();
-
-// public:
-//    VMCS_Mapping(uint32_t revision_id = BX_VMX_VMCS_REVISION_ID); // default VMCS mapping
-//    VMCS_Mapping(uint32_t revision_id, const char *filename);
-
-//    void clear();
-
-//    bool clear_mapping(uint32_t encoding);
-//    bool set_mapping(uint32_t encoding, uint32_t offset);
-
-//    void set_vmcs_revision_id(uint32_t revision) { revision_id = revision; }
-//    uint32_t get_vmcs_revision_id() const { return revision_id; }
-
-//    void set_access_rights_format(VMCS_Access_Rights_Format f) { ar_format = f; }
-//    VMCS_Access_Rights_Format get_access_rights_format() const { return ar_format; }
-
-//    void set_vmcs_recision_id_offset(unsigned offset) { vmcs_revision_id_field_offset = offset; }
-//    void set_vmx_abort_field_offset(unsigned offset) { vmx_abort_field_offset = offset; }
-//    void set_vmcs_launch_state_field_offset(unsigned offset) { vmcs_launch_state_field_offset = offset; }
-   
-//    unsigned vmcs_field_offset(uint32_t encoding) const;
-
-//    bool is_reserved(uint32_t encoding) const {
-//      return (encoding & VMCS_ENCODING_RESERVED_BITS) != 0;
-//    }
-
-//    bool is_valid(uint32_t encoding) const {
-//      return ! is_reserved(encoding) && (vmcs_field_offset(encoding) != 0xffffffff);
-//    }
-// };
 
 #define VMCS_DATA_OFFSET                         (0x0010)
-
-// #if ((VMCS_DATA_OFFSET + 4*(64*15 + VMX_HIGHEST_VMCS_ENCODING)) > VMX_VMCS_AREA_SIZE)
-//   #error "VMCS area size exceeded !"
-// #endif
 
 // =============
 //  VMCS state
@@ -873,7 +732,6 @@ enum VMX_state {
 // ================
 //  VMCS structure
 // ================
-
 typedef struct { /* bx_selector_t */
   uint16_t value;   /* the 16bit value of the selector */
   /* the following fields are extracted from the value field in protected
@@ -984,6 +842,11 @@ typedef struct {
   bx_selector_t    selector;
   bx_descriptor_t  cache;
 } bx_segment_reg_t;
+
+typedef struct {
+  bx_address       base;   /* base address: 24bits=286,32bits=386,64bits=x86-64 */
+  uint16_t           limit;  /* limit, 16bits */
+} bx_global_segment_reg_t;
 
 typedef struct bx_VMCS_GUEST_STATE 
 {
@@ -1298,10 +1161,7 @@ typedef struct bx_VMCS
    //
 
 #if BX_SUPPORT_VMX >= 2
-/*
-#define VMX_VMFUNC_CTRL1_SUPPORTED_BITS \
-    (BX_CPU_THIS_PTR vmx_cap.vmx_vmfunc_supported_bits)
-*/
+
 #define VMX_VMFUNC_CTRL1_SUPPORTED_BITS (rdmsr(0x491))
 
    uint64_t vmfunc_ctrls;
@@ -1329,20 +1189,13 @@ typedef struct bx_VMCS
 
 #define SECONDARY_VMEXEC_CONTROL(ctrl) (vm->vmexec_ctrls3 & (ctrl))
 
-// const uint32_t BX_VMX_INTERRUPTS_BLOCKED_BY_STI      = (1 << 0);
-// const uint32_t BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS   = (1 << 1);
-// const uint32_t BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED = (1 << 2);
-// const uint32_t BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED = (1 << 3);
+
 
 #define BX_VMX_INTERRUPTS_BLOCKED_BY_STI      (1 << 0)
 #define BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS   (1 << 1)
 #define BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED (1 << 2)
 #define BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED (1 << 3)
 
-/*
-const uint32_t BX_VMX_INTERRUPTIBILITY_STATE_MASK = \
-  (BX_VMX_INTERRUPTS_BLOCKED_BY_STI | BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS | BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED | BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED);
-*/
 #define BX_VMX_INTERRUPTIBILITY_STATE_MASK \
   (BX_VMX_INTERRUPTS_BLOCKED_BY_STI | BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS | BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED | BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED)
 
@@ -1350,7 +1203,6 @@ const uint32_t BX_VMX_INTERRUPTIBILITY_STATE_MASK = \
 // IA32_VMX_BASIC MSR (0x480)
 // --------------
 
-// const uint32_t BX_VMCS_SHADOW_BIT_MASK = 0x80000000;
 #define BX_VMCS_SHADOW_BIT_MASK 0x80000000
 
 //
@@ -1373,16 +1225,6 @@ const uint32_t BX_VMX_INTERRUPTIBILITY_STATE_MASK = \
 // 57:63 reserved, must be zero
 //
 
-/*
-#define VMX_MSR_VMX_BASIC_LO (BX_CPU_THIS_PTR vmcs_map->get_vmcs_revision_id())
-#define VMX_MSR_VMX_BASIC_HI \
-     (VMX_VMCS_AREA_SIZE | ((!is_cpu_extension_supported(BX_ISA_LONG_MODE)) << 16) | \
-     (BX_MEMTYPE_WB << 18) | (1<<22)) | ((BX_SUPPORT_VMX >= 2) ? (1<<23) : 0) | \
-     (is_cpu_extension_supported(BX_ISA_CET) ? (1<<24) : 0)
-
-#define VMX_MSR_VMX_BASIC \
-   ((((uint64_t) VMX_MSR_VMX_BASIC_HI) << 32) | VMX_MSR_VMX_BASIC_LO)
-*/
 #define VMX_MSR_VMX_BASIC (rdmsr(0x480))
 #define VMX_MSR_VMX_BASIC_LO (VMX_MSR_VMX_BASIC & 0xffffffff)
 #define VMX_MSR_VMX_BASIC_HI (VMX_MSR_VMX_BASIC >> 32)
@@ -1403,133 +1245,71 @@ const uint32_t BX_VMX_INTERRUPTIBILITY_STATE_MASK = \
 
 // IA32_MSR_VMX_PINBASED_CTRLS MSR (0x481)
 // ---------------------------
-/*
 // Bits 1, 2 and 4 must be '1 
 
+#define VMX_MSR_VMX_PINBASED_CTRLS (rdmsr(0x481))
 // Allowed 0-settings: VMentry fail if a bit is '0 in pin-based vmexec controls
 // but set to '1 in this MSR
-#define VMX_MSR_VMX_PINBASED_CTRLS_LO (0x00000016)
+#define VMX_MSR_VMX_PINBASED_CTRLS_LO (VMX_MSR_VMX_PINBASED_CTRLS & 0xffffffff)
 // Allowed 1-settings: VMentry fail if a bit is '1 in pin-based vmexec controls
 // but set to '0 in this MSR.
-#define VMX_MSR_VMX_PINBASED_CTRLS_HI \
-       (VMX_VM_EXEC_CTRL1_SUPPORTED_BITS | VMX_MSR_VMX_PINBASED_CTRLS_LO)
-
-#define VMX_MSR_VMX_PINBASED_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_PINBASED_CTRLS_HI) << 32) | VMX_MSR_VMX_PINBASED_CTRLS_LO)
-*/
-
-#define VMX_MSR_VMX_PINBASED_CTRLS (rdmsr(0x481))
-#define VMX_MSR_VMX_PINBASED_CTRLS_LO (VMX_MSR_VMX_PINBASED_CTRLS & 0xffffffff)
 #define VMX_MSR_VMX_PINBASED_CTRLS_HI (VMX_MSR_VMX_PINBASED_CTRLS >> 32)
 
 // IA32_MSR_VMX_TRUE_PINBASED_CTRLS MSR (0x48d)
 // --------------------------------
-/*
-// no changes from original IA32_MSR_VMX_PINBASED_CTRLS
-#define VMX_MSR_VMX_TRUE_PINBASED_CTRLS_LO (VMX_MSR_VMX_PINBASED_CTRLS_LO)
-#define VMX_MSR_VMX_TRUE_PINBASED_CTRLS_HI (VMX_MSR_VMX_PINBASED_CTRLS_HI)
-
-#define VMX_MSR_VMX_TRUE_PINBASED_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_TRUE_PINBASED_CTRLS_HI) << 32) | VMX_MSR_VMX_TRUE_PINBASED_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_TRUE_PINBASED_CTRLS (rdmsr(0x48d))
 #define VMX_MSR_VMX_TRUE_PINBASED_CTRLS_LO (VMX_MSR_VMX_TRUE_PINBASED_CTRLS & 0xffffffff)
 #define VMX_MSR_VMX_TRUE_PINBASED_CTRLS_HI (VMX_MSR_VMX_TRUE_PINBASED_CTRLS >> 32)
 
 // IA32_MSR_VMX_PROCBASED_CTRLS MSR (0x482)
 // ----------------------------
-/*
 // Bits 1, 4-6, 8, 13-16, 26 must be '1
 // Bits 0, 17, 18 must be '0
 // Bits 19-21 also must be '0 when x86-64 is not supported
-
-// Allowed 0-settings (must be '1 bits)
-#define VMX_MSR_VMX_PROCBASED_CTRLS_LO (0x0401E172)
-// Allowed 1-settings
-#define VMX_MSR_VMX_PROCBASED_CTRLS_HI \
-       (VMX_VM_EXEC_CTRL2_SUPPORTED_BITS | VMX_MSR_VMX_PROCBASED_CTRLS_LO)
-
-#define VMX_MSR_VMX_PROCBASED_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_PROCBASED_CTRLS_HI) << 32) | VMX_MSR_VMX_PROCBASED_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_PROCBASED_CTRLS (rdmsr(0x482))
+// Allowed 0-settings (must be '1 bits)
 #define VMX_MSR_VMX_PROCBASED_CTRLS_LO (VMX_MSR_VMX_PROCBASED_CTRLS & 0xffffffff)
+// Allowed 1-settings
 #define VMX_MSR_VMX_PROCBASED_CTRLS_HI (VMX_MSR_VMX_PROCBASED_CTRLS >> 32)
 
 // IA32_MSR_VMX_TRUE_PROCBASED_CTRLS MSR (0x48e)
 // ---------------------------------
-/*
 // Bits 15 and 16 no longer must be '1
-#define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_LO (0x04006172)
-#define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_HI (VMX_MSR_VMX_PROCBASED_CTRLS_HI)
 
-#define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_HI) << 32) | VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS (rdmsr(0x48e))
 #define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_LO (VMX_MSR_VMX_TRUE_PROCBASED_CTRLS & 0xffffffff)
 #define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS_HI (VMX_MSR_VMX_TRUE_PROCBASED_CTRLS >> 32)
 
 // IA32_MSR_VMX_VMEXIT_CTRLS MSR (0x483)
 // -------------------------
-/*
 // Bits 0-8, 10, 11, 13, 14, 16, 17 must be '1
-
-// Allowed 0-settings (must be '1 bits)
-#define VMX_MSR_VMX_VMEXIT_CTRLS_LO (0x00036DFF)
-// Allowed 1-settings
-#define VMX_MSR_VMX_VMEXIT_CTRLS_HI \
-       (VMX_VMEXIT_CTRL1_SUPPORTED_BITS | VMX_MSR_VMX_VMEXIT_CTRLS_LO)
-
-#define VMX_MSR_VMX_VMEXIT_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_VMEXIT_CTRLS_HI) << 32) | VMX_MSR_VMX_VMEXIT_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_VMEXIT_CTRLS (rdmsr(0x483))
+// Allowed 0-settings (must be '1 bits)
 #define VMX_MSR_VMX_VMEXIT_CTRLS_LO (VMX_MSR_VMX_VMEXIT_CTRLS & 0xffffffff)
+// Allowed 1-settings
 #define VMX_MSR_VMX_VMEXIT_CTRLS_HI (VMX_MSR_VMX_VMEXIT_CTRLS >> 32)
 
 // IA32_MSR_VMX_TRUE_VMEXIT_CTRLS MSR (0x48f)
 // ------------------------------
-/*
-// Bit 2 no longer must be '1
-#define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_LO (0x00036DFB)
-#define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_HI (VMX_MSR_VMX_VMEXIT_CTRLS_HI)
 
-#define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_HI) << 32) | VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_LO)
-*/
+// Bit 2 no longer must be '1
 #define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS (rdmsr(0x48f))
 #define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_LO (VMX_MSR_VMX_TRUE_VMEXIT_CTRLS & 0xffffffff)
 #define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS_HI (VMX_MSR_VMX_TRUE_VMEXIT_CTRLS >> 32)
 
 // IA32_MSR_VMX_VMENTRY_CTRLS MSR (0x484)
 // --------------------------
-/*
 // Bits 0-8, 12 must be '1
-
-// Allowed 0-settings (must be '1 bits)
-#define VMX_MSR_VMX_VMENTRY_CTRLS_LO (0x000011FF)
-// Allowed 1-settings
-#define VMX_MSR_VMX_VMENTRY_CTRLS_HI \
-       (VMX_VMENTRY_CTRL1_SUPPORTED_BITS | VMX_MSR_VMX_VMENTRY_CTRLS_LO)
-
-#define VMX_MSR_VMX_VMENTRY_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_VMENTRY_CTRLS_HI) << 32) | VMX_MSR_VMX_VMENTRY_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_VMENTRY_CTRLS (rdmsr(0x484))
+// Allowed 0-settings (must be '1 bits)
 #define VMX_MSR_VMX_VMENTRY_CTRLS_LO (VMX_MSR_VMX_VMENTRY_CTRLS & 0xffffffff)
+// Allowed 1-settings
 #define VMX_MSR_VMX_VMENTRY_CTRLS_HI (VMX_MSR_VMX_VMENTRY_CTRLS >> 32)
 
 // IA32_MSR_VMX_TRUE_VMENTRY_CTRLS MSR (0x490)
 // -------------------------------
-/*
 // Bit 2 is longer must be '1
-#define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_LO (0x000011FB)
-#define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_HI (VMX_MSR_VMX_VMENTRY_CTRLS_HI)
 
-#define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS \
-   ((((uint64_t) VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_HI) << 32) | VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_LO)
-*/
 #define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS (rdmsr(0x490))
 #define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_LO (VMX_MSR_VMX_TRUE_VMENTRY_CTRLS & 0xffffffff)
 #define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS_HI (VMX_MSR_VMX_TRUE_VMENTRY_CTRLS >> 32)
@@ -1555,31 +1335,6 @@ const uint32_t BX_VMX_INTERRUPTIBILITY_STATE_MASK = \
 // --------------------------------------------
 // [63:32] - MSEG revision ID used by processor
 
-/*
-#if BX_SUPPORT_VMX >= 2
-const uint32_t VMX_MISC_STORE_LMA_TO_X86_64_GUEST_VMENTRY_CONTROL = (1<<5);
-#else
-const uint32_t VMX_MISC_STORE_LMA_TO_X86_64_GUEST_VMENTRY_CONTROL = 0;
-#endif
-
-const uint32_t VMX_SUPPORT_VMENTER_TO_NON_ACTIVE_STATE = (1<<6) | (1<<7) | (1<<8);
-
-const uint32_t VMX_MISC_SUPPORT_VMWRITE_READ_ONLY_FIELDS            = (1<<29);
-const uint32_t VMX_MISC_ALLOW_INJECTION_OF_SW_INTERRUPT_WITH_ILEN_0 = (1<<30);
-
-//Rate to increase VMX preemtion timer
-const uint32_t VMX_MISC_PREEMPTION_TIMER_RATE = 0;
-*/
-
-/*
-#define VMX_MSR_MISC (VMX_MISC_PREEMPTION_TIMER_RATE | \
-                      VMX_MISC_STORE_LMA_TO_X86_64_GUEST_VMENTRY_CONTROL | \
-                      VMX_SUPPORT_VMENTER_TO_NON_ACTIVE_STATE | \
-                     (VMX_CR3_TARGET_MAX_CNT << 16) | \
-                     (BX_SUPPORT_VMX_EXTENSION(BX_VMX_VMCS_SHADOWING) ? VMX_MISC_SUPPORT_VMWRITE_READ_ONLY_FIELDS : 0) | \
-                     (BX_SUPPORT_VMX_EXTENSION(BX_VMX_SW_INTERRUPT_INJECTION_ILEN_0) ? VMX_MISC_ALLOW_INJECTION_OF_SW_INTERRUPT_WITH_ILEN_0 : 0))
-*/
-
 #define VMX_MSR_MISC (rdmsr(0x485))
 
 //
@@ -1588,23 +1343,9 @@ const uint32_t VMX_MISC_PREEMPTION_TIMER_RATE = 0;
 
 // allowed 0-setting in CR0 in VMX mode
 // bits PE(0), NE(5) and PG(31) required to be set in CR0 to enter VMX mode
-/*
-const uint32_t VMX_MSR_CR0_FIXED0_LO = 0x80000021;
-const uint32_t VMX_MSR_CR0_FIXED0_HI = 0x00000000;
-
-const uint64_t VMX_MSR_CR0_FIXED0 = 
-   ((((uint64_t) VMX_MSR_CR0_FIXED0_HI) << 32) | VMX_MSR_CR0_FIXED0_LO);
-*/
-#define VMX_MSR_CR0_FIXED0  (rdmsr(0x486))
+#define VMX_MSR_CR0_FIXED0 (rdmsr(0x486))
 
 // allowed 1-setting in CR0 in VMX mode
-/*
-const uint32_t VMX_MSR_CR0_FIXED1_LO = 0xFFFFFFFF;
-const uint32_t VMX_MSR_CR0_FIXED1_HI = 0x00000000;
-
-const uint64_t VMX_MSR_CR0_FIXED1 = 
-   ((((uint64_t) VMX_MSR_CR0_FIXED1_HI) << 32) | VMX_MSR_CR0_FIXED1_LO);
-*/
 #define VMX_MSR_CR0_FIXED1 (rdmsr(0x487))
 
 //
@@ -1613,24 +1354,9 @@ const uint64_t VMX_MSR_CR0_FIXED1 =
 
 // allowed 0-setting in CR0 in VMX mode
 // bit VMXE(13) required to be set in CR4 to enter VMX mode
-/*
-const uint32_t VMX_MSR_CR4_FIXED0_LO = 0x00002000;
-const uint32_t VMX_MSR_CR4_FIXED0_HI = 0x00000000;
-
-const uint64_t VMX_MSR_CR4_FIXED0 = 
-   ((((uint64_t) VMX_MSR_CR4_FIXED0_HI) << 32) | VMX_MSR_CR4_FIXED0_LO);
-*/
-
 #define VMX_MSR_CR4_FIXED0 (rdmsr(0x488))
 
 // allowed 1-setting in CR0 in VMX mode
-/*
-#define VMX_MSR_CR4_FIXED1_LO (BX_CPU_THIS_PTR cr4_suppmask)
-#define VMX_MSR_CR4_FIXED1_HI (0)
-
-#define VMX_MSR_CR4_FIXED1 \
-   ((((uint64_t) VMX_MSR_CR4_FIXED1_HI) << 32) | VMX_MSR_CR4_FIXED1_LO)
-*/
 #define VMX_MSR_CR4_FIXED1 (rdmsr(0x489))
 
 //
@@ -1651,19 +1377,11 @@ const uint64_t VMX_MSR_CR4_FIXED0 =
 
 // IA32_VMX_MSR_PROCBASED_CTRLS2 MSR (0x48b)
 // -----------------------------
-/*
-// Allowed 0-settings (must be '1 bits)
-#define VMX_MSR_VMX_PROCBASED_CTRLS2_LO (0x00000000)
-// Allowed 1-settings
-#define VMX_MSR_VMX_PROCBASED_CTRLS2_HI \
-       (VMX_VM_EXEC_CTRL3_SUPPORTED_BITS | VMX_MSR_VMX_PROCBASED_CTRLS2_LO)
-
-#define VMX_MSR_VMX_PROCBASED_CTRLS2 \
-   ((((uint64_t) VMX_MSR_VMX_PROCBASED_CTRLS2_HI) << 32) | VMX_MSR_VMX_PROCBASED_CTRLS2_LO)
-*/
-
 #define VMX_MSR_VMX_PROCBASED_CTRLS2 (rdmsr(0x48b))
+
+// Allowed 0-settings (must be '1 bits)
 #define VMX_MSR_VMX_PROCBASED_CTRLS2_LO (VMX_MSR_VMX_PROCBASED_CTRLS2 & 0xffffffff)
+// Allowed 1-settings
 #define VMX_MSR_VMX_PROCBASED_CTRLS2_HI (VMX_MSR_VMX_PROCBASED_CTRLS2 >> 32)
 
 
@@ -1679,10 +1397,6 @@ enum VMX_INVEPT_INVVPID_type {
   BX_INVEPT_INVVPID_SINGLE_CONTEXT_NON_GLOBAL_INVALIDATION
 };
 
-/*
-#define VMX_MSR_VMX_EPT_VPID_CAP \
-   (BX_CPU_THIS_PTR vmx_cap.vmx_ept_vpid_cap_supported_bits)
-*/
 #define VMX_MSR_VMX_EPT_VPID_CAP (rdmsr(0x48c))
 
 #endif
@@ -1691,4 +1405,14 @@ enum VMX_INVEPT_INVVPID_type {
 // -----------------
 #define MSR_EFER (rdmsr(0xc0000080))
 
-#endif // _BX_VMX_INTEL_H_
+enum VMX_error_code VMenterLoadCheckVmControls(void);
+enum VMX_error_code VMenterLoadCheckHostState(void);
+uint32_t VMenterLoadCheckGuestState(uint64_t *qualification);
+bool isMemTypeValidMTRR(unsigned memtype);
+bool isMemTypeValidPAT(unsigned memtype);
+bool isValidMSR_PAT(uint64_t pat_val);
+bool is_invalid_cet_control(bx_address val);
+bool CheckPDPTR(uint64_t *pdptr);
+bool CheckPDPTR_CR3(bx_phy_address cr3_val);
+uint32_t VMX_Read_Virtual_APIC_VTPR();
+uint32_t VMXReadRevisionID(bx_phy_address pAddr);

@@ -1192,7 +1192,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   //
   guest.rflags = vmread(VMCS_GUEST_RFLAGS);
   // RFLAGS reserved bits [63:22], bit 15, bit 5, bit 3 must be zero
-  if (guest.rflags & BX_CONST64(0xFFFFFFFFFFC08028)) {
+  if (guest.rflags & 0xFFFFFFFFFFC08028) {
      wprintf(L"VMENTER FAIL: RFLAGS reserved bits are set\n");
      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
@@ -1558,7 +1558,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   uint32_t ldtr_ar = vmread(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS);
 //   ldtr_ar = vmx_unpack_ar_field(ldtr_ar, vmcs_map->get_access_rights_format());
   ldtr_ar = vmx_unpack_ar_field(ldtr_ar, VMCS_AR_PACK);
-  wprintf(L"ldtr_ar %x\nldtr_limit %x\n", ldtr_ar, ldtr_limit);
+//   wprintf(L"ldtr_ar %x\nldtr_limit %x\n", ldtr_ar, ldtr_limit);
   bool ldtr_invalid = (ldtr_ar >> 16) & 1;
   if (set_segment_ar_data(&guest.ldtr, !ldtr_invalid, 
          (uint16_t) ldtr_selector, ldtr_base, ldtr_limit, (uint16_t)(ldtr_ar)))
@@ -1714,7 +1714,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   //
 
   vm->vmcs_linkptr = vmread(VMCS_64BIT_GUEST_LINK_POINTER);
-  wprintf(L"vmcs_linkptr %x\n", vm->vmcs_linkptr);
+//   wprintf(L"vmcs_linkptr %x\n", vm->vmcs_linkptr);
   if (vm->vmcs_linkptr != BX_INVALID_VMCSPTR) {
     if (! IsValidPageAlignedPhyAddr(vm->vmcs_linkptr)) {
       *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
@@ -1755,7 +1755,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
 
   guest.tmpDR6 = (uint32_t) vmread(VMCS_GUEST_PENDING_DBG_EXCEPTIONS);
-  if (guest.tmpDR6 & BX_CONST64(0xFFFFFFFFFFFFAFF0)) {
+  if (guest.tmpDR6 & 0xFFFFFFFFFFFFAFF0) {
     wprintf(L"VMENTER FAIL: VMCS guest tmpDR6 reserved bits\n");
     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
@@ -2054,8 +2054,8 @@ uint32_t VMXReadRevisionID(bx_phy_address pAddr){
     uint32_t *vmcs = (uint32_t *)vmcs_ptr;
     return vmcs[0];
 } 
-const uint64_t BX_PAGING_PHY_ADDRESS_RESERVED_BITS = BX_PHY_ADDRESS_RESERVED_BITS & BX_CONST64(0xfffffffffffff);
-const uint64_t PAGING_PAE_PDPTE1G_RESERVED_BITS = BX_PAGING_PHY_ADDRESS_RESERVED_BITS | BX_CONST64(0x3FFFE000);
+const uint64_t BX_PAGING_PHY_ADDRESS_RESERVED_BITS = BX_PHY_ADDRESS_RESERVED_BITS & 0xfffffffffffff;
+const uint64_t PAGING_PAE_PDPTE1G_RESERVED_BITS = BX_PAGING_PHY_ADDRESS_RESERVED_BITS | 0x3FFFE000;
 
 
 // not supported yet
