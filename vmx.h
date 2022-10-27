@@ -1416,3 +1416,4 @@ bool CheckPDPTR(uint64_t *pdptr);
 bool CheckPDPTR_CR3(bx_phy_address cr3_val);
 uint32_t VMX_Read_Virtual_APIC_VTPR();
 uint32_t VMXReadRevisionID(bx_phy_address pAddr);
+void VMXWriteRevisionID(bx_phy_address pAddr, uint32_t value);

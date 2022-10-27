@@ -1,0 +1,10 @@
+cp input/random_input_0 afl_input && sudo ./fuzz_test 
+cp input/random_input_1 afl_input && sudo ./fuzz_test 
+cp input/random_input_2 afl_input && sudo ./fuzz_test 
+cp input/random_input_3 afl_input && sudo ./fuzz_test 
+cp input/random_input_4 afl_input && sudo ./fuzz_test 
+cp input/random_input_5 afl_input && sudo ./fuzz_test 
+cp input/random_input_6 afl_input && sudo ./fuzz_test 
+cp input/random_input_7 afl_input && sudo ./fuzz_test 
+cp input/random_input_8 afl_input && sudo ./fuzz_test 
+cp input/random_input_9 afl_input && sudo ./fuzz_test 

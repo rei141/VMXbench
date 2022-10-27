@@ -115,7 +115,7 @@ int ScanBus(uint8_t bus);
     WriteAddress(MakeAddress(bus, device, function, 0x10+0x4*bar));
     return ReadData();
   }
-  uint16_t ReadVendorId(uint8_t bus, uint8_t device, uint8_t function) {
+  inline uint16_t ReadVendorId(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x00));
     return ReadData() & 0xffffu;
   }

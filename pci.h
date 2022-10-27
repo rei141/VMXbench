@@ -9,7 +9,8 @@ struct Device {
     uint8_t bus, device, function, header_type;
     ClassCode class_code;
   }typedef Device;
-
+uint32_t IoIn32(uint16_t addr);
+void IoOut32(uint16_t addr, uint32_t data);
 //     inline uint16_t ReadVendorId(const Device& dev) {
 //     return ReadVendorId(dev.bus, dev.device, dev.function);
 //   }
