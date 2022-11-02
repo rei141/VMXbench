@@ -125,8 +125,8 @@ static inline void invvpid(uint64_t type, const invept_t *i)
 
 #define BX_SUPPORT_VMX 2
 #define BX_SUPPORT_X86_64 1
-#define BX_SUPPORT_CET 1
-#define BX_SUPPORT_PKEYS 1
+#define BX_SUPPORT_CET 0
+#define BX_SUPPORT_PKEYS 0
 #define BX_CPU_LEVEL 6
 
 #if BX_SUPPORT_X86_64
@@ -1055,7 +1055,7 @@ typedef struct bx_VMCS
    bx_address vm_cr4_mask;
    bx_address vm_cr4_read_shadow;
 
-#define VMX_CR3_TARGET_MAX_CNT 4
+#define VMX_CR3_TARGET_MAX_CNT 256
 
    uint32_t vm_cr3_target_cnt;
    bx_address vm_cr3_target_value[VMX_CR3_TARGET_MAX_CNT];

@@ -417,13 +417,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   }
 
-  if (vm->vm_cr3_target_cnt > VMX_CR3_TARGET_MAX_CNT) {
+  if (vm->vm_cr3_target_cnt > ((VMX_MSR_MISC >> 16)&0xf)) { //VMX_CR3_TARGET_MAX_CNT
      wprintf(L"VMFAIL: VMCS EXEC CTRL: too may CR3 targets %d\n", vm->vm_cr3_target_cnt);
    //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
-     vm->vm_cr3_target_cnt = 0;
+     vm->vm_cr3_target_cnt = (VMX_MSR_MISC >> 16)&0xf;
    //   vm->vm_cr3_target_cnt = VMX_CR3_TARGET_MAX_CNT;
      vmwrite(VMCS_32BIT_CONTROL_CR3_TARGET_COUNT, vm->vm_cr3_target_cnt);
-   //   wprintf(L"target count %d\n", vmread(VMCS_32BIT_CONTROL_CR3_TARGET_COUNT));
   }
 
   if (vm->vmexec_ctrls2 & VMX_VM_EXEC_CTRL2_IO_BITMAPS) {
@@ -807,12 +806,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      unsigned push_error_reference = 0;
      if (event_type == BX_HARDWARE_EXCEPTION && vector < BX_CPU_HANDLED_EXCEPTIONS)
         push_error_reference = exceptions_info[vector].push_error;
-// #if BX_SUPPORT_CET
+#if BX_SUPPORT_CET
     //  if (! BX_CPUID_SUPPORT_ISA_EXTENSION(BX_ISA_CET)) {
       if (!(VMX_MSR_VMX_BASIC & (uint64_t)1<<56)) {
         if (vector == BX_CP_EXCEPTION) push_error_reference = false;
      }
-// #endif     
+#endif     
 
      if (vm->vmentry_interr_info & 0x7ffff000) {
         wprintf(L"VMFAIL: VMENTRY broken interruption info field\n");
@@ -1189,6 +1188,26 @@ bool IsLimitAccessRightsConsistent(uint32_t limit, uint32_t ar)
 
   return 1;
 }
+uint32_t MakeValidAccessRights(uint32_t limit, uint32_t ar) // in progress
+{
+  bool g = (ar >> 15) & 1;
+
+  // access rights reserved bits set
+  ar &= ~(0xfffe0f00); 
+  return ar;
+
+  if (g) {
+    // if any of the bits in limit[11:00] are '0 <=> G must be '0
+    if ((limit & 0xfff) != 0xfff)
+       return 0;
+  }
+  else {
+    // if any of the bits in limit[31:20] are '1 <=> G must be '1
+    if ((limit & 0xfff00000) != 0)
+       return 0;
+  }
+  return ar;
+}
 static uint32_t rotate_r(uint32_t val_32)
 {
   return (val_32 >> 8) | (val_32 << 24);
@@ -1341,7 +1360,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 #if BX_SUPPORT_VMX >= 2
   if (vm->vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
      if (~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))) {
-        wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+      //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
         return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 
@@ -1356,7 +1375,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 #endif
   {
      if (~guest.cr0 & VMX_MSR_CR0_FIXED0) {
-        wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+      //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
       //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
         guest.cr0 |= VMX_MSR_CR0_FIXED0;
         vmwrite(VMCS_GUEST_CR0, guest.cr0);
@@ -1364,7 +1383,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
 
   if (guest.cr0 & ~VMX_MSR_CR0_FIXED1) {
-     wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+   //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
    //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
       guest.cr0 &= VMX_MSR_CR0_FIXED1;
       vmwrite(VMCS_GUEST_CR0, guest.cr0);
@@ -1386,14 +1405,14 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
   guest.cr4 = vmread(VMCS_GUEST_CR4);
   if (~guest.cr4 & VMX_MSR_CR4_FIXED0) {
-     wprintf(L"VMENTER FAIL: VMCS guest invalid CR4\n");
+   //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR4\n");
    //   return VMXERR_VMENTRY_INVALID_VM_HOST_STATE_FIELD;
       guest.cr4 |= VMX_MSR_CR4_FIXED0;
       vmwrite(VMCS_GUEST_CR4, guest.cr4);
   }
 
   if (guest.cr4 & ~VMX_MSR_CR4_FIXED1) {
-     wprintf(L"VMENTER FAIL: VMCS guest invalid CR4\n");
+   //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR4\n");
    //   return VMXERR_VMENTRY_INVALID_VM_HOST_STATE_FIELD;
       guest.cr4 &= VMX_MSR_CR4_FIXED1;
       vmwrite(VMCS_GUEST_CR4, guest.cr4);
@@ -1412,7 +1431,9 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   else {
      if (guest.cr4 & BX_CR4_PCIDE_MASK) {
         wprintf(L"VMENTER FAIL: VMCS CR4.PCIDE set in 32-bit guest\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.cr4 &= ~(BX_CR4_PCIDE_MASK);
+        vmwrite(VMCS_GUEST_CR4, guest.cr4);
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
   }
 
@@ -1488,6 +1509,18 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
      set_segment_ar_data(&guest.sregs[n], !invalid,
                   (uint16_t) selector, base, limit, (uint16_t) ar);
+  }
+  for (n=0; n<6; n++) {
+     uint16_t selector = vmread(VMCS_16BIT_GUEST_ES_SELECTOR + 2*n);
+     bx_address base = (bx_address) vmread(VMCS_GUEST_ES_BASE + 2*n);
+     uint32_t limit = vmread(VMCS_32BIT_GUEST_ES_LIMIT + 2*n);
+     uint32_t ar = vmread(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n);
+     ar = vmx_unpack_ar_field(ar, VMCS_AR_PACK);
+
+     bool invalid = (ar >> 16) & 1;
+
+     set_segment_ar_data(&guest.sregs[n], !invalid,
+                  (uint16_t) selector, base, limit, (uint16_t) ar);
 
      if (v8086_guest) {
         // guest in V8086 mode
@@ -1537,17 +1570,35 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
      if (! guest.sregs[n].cache.segment) {
         wprintf(L"VMENTER FAIL: VMCS guest %s not segment\n", segname[n]);
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.sregs[n].cache.segment = 1;
+        ar |= 1<<4; // ar segment
+        vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 
      if (! guest.sregs[n].cache.p) {
         wprintf(L"VMENTER FAIL: VMCS guest %s not present\n", segname[n]);
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.sregs[n].cache.p = 1;
+        ar |= 1<<7; // ar p
+        vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 
      if (! IsLimitAccessRightsConsistent(limit, ar)) {
         wprintf(L"VMENTER FAIL: VMCS guest %s.AR/LIMIT malformed\n", segname[n]);
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        ar &= ~(0xfffe0f00); 
+        if ((ar >> 15) & 1){
+           if ((limit & 0xfff) != 0xfff) {
+              ar &= ~(1<<15);
+           }
+        }
+        else {
+           if ((limit & 0xfff00000) != 0) {
+              ar |= 1<<15;
+           }
+        }
+        vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 
      if (n == BX_SEG_REG_CS) {
@@ -1556,24 +1607,28 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
           case BX_CODE_EXEC_ONLY_ACCESSED:
           case BX_CODE_EXEC_READ_ACCESSED:
              // non-conforming segment
-             if (guest.sregs[BX_SEG_REG_CS].selector.rpl != guest.sregs[BX_SEG_REG_CS].cache.dpl) {
-               wprintf(L"VMENTER FAIL: VMCS guest non-conforming CS.RPL <> CS.DPL\n");
+             if (guest.sregs[BX_SEG_REG_CS].cache.dpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
+               wprintf(L"VMENTER FAIL: VMCS guest non-conforming CS.DPL <> SS.DPL\n");
                // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-               guest.sregs[BX_SEG_REG_CS].selector.rpl = guest.sregs[BX_SEG_REG_CS].cache.dpl;
-               guest.sregs[BX_SEG_REG_CS].selector.value &= 0xfffc;
-               guest.sregs[BX_SEG_REG_CS].selector.value |= guest.sregs[BX_SEG_REG_CS].selector.rpl;
-               vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_CS, guest.sregs[BX_SEG_REG_CS].selector.value);
+               guest.sregs[BX_SEG_REG_CS].cache.dpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+               ar &= ~(1<<5|1<<6);
+               ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl<<5;
+               vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
              }
              break;
           case BX_CODE_EXEC_ONLY_CONFORMING_ACCESSED:
           case BX_CODE_EXEC_READ_CONFORMING_ACCESSED:
              // conforming segment
-             if (guest.sregs[BX_SEG_REG_CS].selector.rpl < guest.sregs[BX_SEG_REG_CS].cache.dpl) {
-               wprintf(L"VMENTER FAIL: VMCS guest non-conforming CS.RPL < CS.DPL\n");
+             if (guest.sregs[BX_SEG_REG_SS].cache.dpl < guest.sregs[BX_SEG_REG_CS].cache.dpl) {
+               wprintf(L"VMENTER FAIL: VMCS guest non-conforming SS.DPL < CS.DPL\n");
                // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-               guest.sregs[BX_SEG_REG_CS].selector.value &= guest.sregs[BX_SEG_REG_CS].cache.dpl;
-               guest.sregs[BX_SEG_REG_CS].selector.rpl = guest.sregs[BX_SEG_REG_CS].selector.value&0x3;
-               vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_CS, guest.sregs[BX_SEG_REG_CS].selector.value);
+               guest.sregs[BX_SEG_REG_CS].cache.dpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+               ar &= ~(1<<5|1<<6);
+               ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl<<5;
+               vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+      wprintf(L"===== CS CHECK =====\n");
+               wprintf(L"CS DPL = %x\n", (vmread(0x4816)>>5)&0x3);
+               wprintf(L"SS DPL = %x\n", (vmread(0x4818)>>5)&0x3);
              }
              break;
 #if BX_SUPPORT_VMX >= 2
@@ -1596,12 +1651,16 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
         if (x86_64_guest) {
           if (guest.sregs[BX_SEG_REG_CS].cache.u.segment.d_b && guest.sregs[BX_SEG_REG_CS].cache.u.segment.l) {
              wprintf(L"VMENTER FAIL: VMCS x86_64 guest wrong CS.D_B/L\n");
-             return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+            //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+             guest.sregs[BX_SEG_REG_CS].cache.u.segment.d_b = 0;
+             ar &= ~(1<<14);
+             vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
           }
         }
 #endif
      }
      else if (n == BX_SEG_REG_SS) {
+      // wprintf(L"===== SS CHECK =====\n");
         // SS checks
         switch (guest.sregs[BX_SEG_REG_SS].cache.type) {
           case BX_DATA_READ_WRITE_ACCESSED:
@@ -1609,28 +1668,45 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
              break;
           default:
              wprintf(L"VMENTER FAIL: VMCS guest SS.TYPE\n");
-             return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+             ar &= 0xfffffff0;
+             if (guest.sregs[BX_SEG_REG_SS].cache.type & 0x1){
+               guest.sregs[BX_SEG_REG_SS].cache.type = BX_DATA_READ_WRITE_ACCESSED;
+               ar |= BX_DATA_READ_WRITE_ACCESSED;
+             }
+             else {
+               guest.sregs[BX_SEG_REG_SS].cache.type = BX_DATA_READ_WRITE_EXPAND_DOWN_ACCESSED;
+               ar |= BX_DATA_READ_WRITE_EXPAND_DOWN_ACCESSED;
+             }
+             vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+            //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
         }
+      // wprintf(L"===== SS CHECK =====\n");
      }
      else {
         // DS, ES, FS, GS
         if ((guest.sregs[n].cache.type & 0x1) == 0) {
-           wprintf(L"VMENTER FAIL: VMCS guest %s not ACCESSED\n", segname[n]);
-           return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+         //   wprintf(L"VMENTER FAIL: VMCS guest %s not ACCESSED\n", segname[n]);
+           guest.sregs[n].cache.type |= 1<<0;
+           ar |= 1<<0;
+           vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+         //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
         }
 
         if (guest.sregs[n].cache.type & 0x8) {
            if ((guest.sregs[n].cache.type & 0x2) == 0) {
-              wprintf(L"VMENTER FAIL: VMCS guest CODE segment %s not READABLE\n", segname[n]);
-              return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+            //   wprintf(L"VMENTER FAIL: VMCS guest CODE segment %s not READABLE\n", segname[n]);
+              guest.sregs[n].cache.type |= 1<<1;
+              ar |= 1<<1;
+              vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*n, ar);
+            //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
            }
         }
 
         if (! (vm->vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) {
-           if (guest.sregs[n].cache.type < 11) {
+           if (guest.sregs[n].cache.type <= 11) {
               // data segment or non-conforming code segment
               if (guest.sregs[n].selector.rpl > guest.sregs[n].cache.dpl) {
-                wprintf(L"VMENTER FAIL: VMCS guest non-conforming %s.RPL < %s.DPL\n", segname[n], segname[n]);
+               //  wprintf(L"VMENTER FAIL: VMCS guest non-conforming %s.RPL < %s.DPL\n", segname[n], segname[n]);
                //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
                guest.sregs[n].selector.value &= guest.sregs[n].cache.dpl;
                guest.sregs[n].selector.rpl = guest.sregs[n].selector.value&0x3;
@@ -1643,25 +1719,24 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
   if (! v8086_guest) {
      if (! (vm->vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) {
-        if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_CS].selector.rpl) {
-           wprintf(L"VMENTER FAIL: VMCS guest CS.RPL != SS.RPL\n");
-         //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-               guest.sregs[BX_SEG_REG_SS].selector.rpl = guest.sregs[BX_SEG_REG_CS].selector.rpl;
-               guest.sregs[BX_SEG_REG_SS].selector.value &= 0xfffc;
-               guest.sregs[BX_SEG_REG_SS].selector.value |= guest.sregs[BX_SEG_REG_SS].selector.rpl;
-               vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_SS, guest.sregs[BX_SEG_REG_SS].selector.value);
-        }
+      // wprintf(L"===== SS CHECK =====\n");
         if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
            wprintf(L"VMENTER FAIL: VMCS guest SS.RPL <> SS.DPL\n");
          //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-           guest.sregs[BX_SEG_REG_SS].cache.dpl = guest.sregs[BX_SEG_REG_SS].selector.rpl;
-           uint32_t ar = vmread(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_SS);
-           ar = vmx_unpack_ar_field(ar, VMCS_AR_PACK);
-           ar &= ~(1<<5 | 1<<6);
-           ar |= guest.sregs[BX_SEG_REG_SS].cache.dpl << 5;
-           vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_SS, ar);
-           wprintf(L"rpl 0x%x, dpl 0x%x\n", vmread(VMCS_16BIT_GUEST_ES_SELECTOR  + 2*BX_SEG_REG_SS),vmread(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_SS));
+           guest.sregs[BX_SEG_REG_SS].selector.rpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+           guest.sregs[BX_SEG_REG_SS].selector.value &= 0xfffc;
+           guest.sregs[BX_SEG_REG_SS].selector.value |= guest.sregs[BX_SEG_REG_SS].selector.rpl;
+           vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_SS, guest.sregs[BX_SEG_REG_SS].selector.value);
         }
+        if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_CS].selector.rpl) {
+           wprintf(L"VMENTER FAIL: VMCS guest CS.RPL != SS.RPL\n");
+         //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+               guest.sregs[BX_SEG_REG_CS].selector.rpl = guest.sregs[BX_SEG_REG_SS].selector.rpl;
+               guest.sregs[BX_SEG_REG_CS].selector.value &= 0xfffc;
+               guest.sregs[BX_SEG_REG_CS].selector.value |= guest.sregs[BX_SEG_REG_CS].selector.rpl;
+               vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_CS, guest.sregs[BX_SEG_REG_CS].selector.value);
+        }
+      // wprintf(L"===== SS CHECK =====\n");
      }
 #if BX_SUPPORT_VMX >= 2
      else { // unrestricted guest
@@ -1674,6 +1749,56 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      }
 #endif
   }
+
+/*
+     if (n == BX_SEG_REG_CS) {
+        // CS checks
+        switch (guest.sregs[BX_SEG_REG_CS].cache.type) {
+          case BX_CODE_EXEC_ONLY_ACCESSED:
+          case BX_CODE_EXEC_READ_ACCESSED:
+             // non-conforming segment
+             if (guest.sregs[BX_SEG_REG_CS].cache.dpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
+               wprintf(L"VMENTER FAIL: VMCS guest non-conforming CS.DPL <> SS.DPL\n");
+               // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+               guest.sregs[BX_SEG_REG_CS].cache.dpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+               ar &= ~(1<<5|1<<6);
+               ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl;
+               vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+             }
+             break;
+          case BX_CODE_EXEC_ONLY_CONFORMING_ACCESSED:
+          case BX_CODE_EXEC_READ_CONFORMING_ACCESSED:
+             // conforming segment
+             if (guest.sregs[BX_SEG_REG_SS].cache.dpl < guest.sregs[BX_SEG_REG_CS].cache.dpl) {
+               wprintf(L"VMENTER FAIL: VMCS guest non-conforming SS.DPL < CS.DPL\n");
+               // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+               guest.sregs[BX_SEG_REG_CS].cache.dpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+               ar &= ~(1<<5|1<<6);
+               ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl;
+               vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+             }
+             break;
+
+  if (! v8086_guest) {
+     if (! (vm->vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) {
+        if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
+           wprintf(L"VMENTER FAIL: VMCS guest SS.RPL <> SS.DPL\n");
+         //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+           guest.sregs[BX_SEG_REG_SS].selector.rpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+           guest.sregs[BX_SEG_REG_SS].selector.value &= 0xfffc;
+           guest.sregs[BX_SEG_REG_SS].selector.value |= guest.sregs[BX_SEG_REG_SS].selector.rpl;
+           vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_SS, guest.sregs[BX_SEG_REG_SS].selector.value);
+        }
+        if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_CS].selector.rpl) {
+           wprintf(L"VMENTER FAIL: VMCS guest CS.RPL != SS.RPL\n");
+         //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+               guest.sregs[BX_SEG_REG_CS].selector.rpl = guest.sregs[BX_SEG_REG_SS].selector.rpl;
+               guest.sregs[BX_SEG_REG_CS].selector.value &= 0xfffc;
+               guest.sregs[BX_SEG_REG_CS].selector.value |= guest.sregs[BX_SEG_REG_CS].selector.rpl;
+               vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_CS, guest.sregs[BX_SEG_REG_CS].selector.value);
+        }
+     }
+*/
 
   //
   // Load and Check Guest State from VMCS - GDTR/IDTR
@@ -1713,7 +1838,10 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      // ldtr is valid
      if (guest.ldtr.selector.ti) {
         wprintf(L"VMENTER FAIL: VMCS guest LDTR.TI set\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.ldtr.selector.ti = 0;
+        guest.ldtr.selector.value &= ~(1<<2);
+        vmwrite(VMCS_16BIT_GUEST_LDTR_SELECTOR, guest.ldtr.selector.value);
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
      if (guest.ldtr.cache.type != BX_SYS_SEGMENT_LDT) {
         wprintf(L"VMENTER FAIL: VMCS guest incorrect LDTR type (%d)\n", guest.ldtr.cache.type);
@@ -1767,7 +1895,10 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
   if (guest.tr.selector.ti) {
      wprintf(L"VMENTER FAIL: VMCS guest TR.TI set\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+     guest.tr.selector.ti = 0;
+     guest.tr.selector.value &= ~(1<<2);
+     vmwrite(VMCS_16BIT_GUEST_TR_SELECTOR, guest.tr.selector.value);
+   //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
   if (guest.tr.cache.segment) {
      wprintf(L"VMENTER FAIL: VMCS guest TR is not system segment\n");
@@ -1836,17 +1967,37 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
     // if (guest.efer_msr & ~((uint64_t) efer_suppmask)) {
     if (guest.efer_msr & ~((uint64_t) MSR_EFER)) {
       wprintf(L"VMENTER FAIL: VMCS guest EFER reserved bits set !\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.efer_msr &= (uint64_t) MSR_EFER;
+      vmwrite(VMCS_64BIT_GUEST_IA32_EFER, guest.efer_msr);
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
     }
     bool lme = (guest.efer_msr >>  8) & 0x1;
     bool lma = (guest.efer_msr >> 10) & 0x1;
     if (lma != x86_64_guest) {
       wprintf(L"VMENTER FAIL: VMCS guest EFER.LMA doesn't match x86_64_guest !\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      if (lma == 0){
+         lma = 1;
+         guest.efer_msr |= 1<<10;
+      }
+      else {
+         lma = 0;
+         guest.efer_msr &= ~(1<<10);
+      }
+      vmwrite(VMCS_64BIT_GUEST_IA32_EFER, guest.efer_msr);
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
     }
     if (lma != lme && (guest.cr0 & BX_CR0_PG_MASK) != 0) {
       wprintf(L"VMENTER FAIL: VMCS guest EFER (0x%08x) inconsistent value !\n", (uint32_t) guest.efer_msr);
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      if (lme == 0){
+         lme = 1;
+         guest.efer_msr |= 1<<8;
+      }
+      else {
+         lme = 0;
+         guest.efer_msr &= ~(1<<8);
+      }
+      vmwrite(VMCS_64BIT_GUEST_IA32_EFER, guest.efer_msr);
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
     }
   }
 
