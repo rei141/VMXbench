@@ -827,7 +827,11 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
        case BX_NMI:
          if (vector != 2) {
            wprintf(L"VMFAIL: VMENTRY bad injected event vector %d\n", vector);
-           return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+           vector = 2;
+           vm->vmentry_interr_info &= ~(0xff);
+           vm->vmentry_interr_info |= 2;
+           vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm->vmentry_interr_info);
          }
 /*
          // injecting NMI
@@ -843,7 +847,11 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
        case BX_HARDWARE_EXCEPTION:
          if (vector > 31) {
            wprintf(L"VMFAIL: VMENTRY bad injected event vector %d\n", vector);
-           return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+           vector &= 0x1f;
+           vm->vmentry_interr_info &= 0xffffff1f;
+           vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm->vmentry_interr_info);
+
          }
          break;
 
@@ -855,7 +863,11 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
               vm->vmentry_instr_length > 15)
          {
            wprintf(L"VMFAIL: VMENTRY bad injected event instr length\n");
-           return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+           vm->vmentry_instr_length &= 0xf;
+           vm->vmentry_instr_length |= 0x1;
+           vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INSTRUCTION_LENGTH, vm->vmentry_instr_length);
+
          }
          break;
 
@@ -863,14 +875,22 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
         //  if (BX_SUPPORT_VMX_EXTENSION(BX_VMX_MONITOR_TRAP_FLAG)) {
            if (vector != 0) {
              wprintf(L"VMFAIL: VMENTRY bad MTF injection with vector=%d\n", vector);
-             return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+            //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+             vector = 0;
+             vm->vmentry_interr_info &= ~(0xff);
+             vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm->vmentry_interr_info);
+   
            }
         //  }
          break;
 
        default:
          wprintf(L"VMFAIL: VMENTRY bad injected event type %d\n", event_type);
-         return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         // return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         event_type = 0;
+         vm->vmentry_interr_info &=  ~((0x7) << 8);
+         vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm->vmentry_interr_info);
+
      }
 
 #if BX_SUPPORT_VMX >= 2
@@ -1845,19 +1865,42 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      }
      if (guest.ldtr.cache.type != BX_SYS_SEGMENT_LDT) {
         wprintf(L"VMENTER FAIL: VMCS guest incorrect LDTR type (%d)\n", guest.ldtr.cache.type);
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.ldtr.cache.type = BX_SYS_SEGMENT_LDT;
+        ldtr_ar &= ~(0xf);
+        ldtr_ar |= 0x2;
+        vmwrite(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS, ldtr_ar);
+
      }
      if (guest.ldtr.cache.segment) {
         wprintf(L"VMENTER FAIL: VMCS guest LDTR is not system segment\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.ldtr.cache.segment = 0;
+        ldtr_ar &= ~(1<<4);
+        vmwrite(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS, ldtr_ar);
      }
      if (! guest.ldtr.cache.p) {
         wprintf(L"VMENTER FAIL: VMCS guest LDTR not present\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.ldtr.cache.p = 1;
+        ldtr_ar |= 1<<7;
+        vmwrite(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS, ldtr_ar);
      }
      if (! IsLimitAccessRightsConsistent(ldtr_limit, ldtr_ar)) {
         wprintf(L"VMENTER FAIL: VMCS guest LDTR.AR/LIMIT malformed\n");
         // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        ldtr_ar &= ~(0xfffe0f00); 
+        if ((ldtr_ar >> 15) & 1){
+           if ((ldtr_limit & 0xfff) != 0xfff) {
+              ldtr_ar &= ~(1<<15);
+           }
+        }
+        else {
+           if ((ldtr_limit & 0xfff00000) != 0) {
+              ldtr_ar |= 1<<15;
+           }
+        }
+        vmwrite(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS, ldtr_ar);
      }
 #if BX_SUPPORT_X86_64
      if (! IsCanonical(ldtr_base)) {
@@ -1886,13 +1929,16 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
 #endif
 
-  set_segment_ar_data(&guest.tr, !tr_invalid, 
-      (uint16_t) tr_selector, tr_base, tr_limit, (uint16_t)(tr_ar));
 
   if (tr_invalid) {
      wprintf(L"VMENTER FAIL: VMCS guest TR invalid\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+     tr_invalid = 0;
+     tr_ar &= ~(1<<16);
+     vmwrite(VMCS_32BIT_GUEST_TR_ACCESS_RIGHTS, tr_ar);
   }
+  set_segment_ar_data(&guest.tr, !tr_invalid, 
+      (uint16_t) tr_selector, tr_base, tr_limit, (uint16_t)(tr_ar));
   if (guest.tr.selector.ti) {
      wprintf(L"VMENTER FAIL: VMCS guest TR.TI set\n");
      guest.tr.selector.ti = 0;
@@ -1902,15 +1948,33 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
   if (guest.tr.cache.segment) {
      wprintf(L"VMENTER FAIL: VMCS guest TR is not system segment\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+     guest.tr.cache.segment = 0;
+     tr_ar &= ~(1<<4);
+     vmwrite(VMCS_32BIT_GUEST_TR_ACCESS_RIGHTS, tr_ar);
   }
   if (! guest.tr.cache.p) {
      wprintf(L"VMENTER FAIL: VMCS guest TR not present\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+     guest.tr.cache.p = 1;
+     tr_ar |= 1<<7;
+     vmwrite(VMCS_32BIT_GUEST_TR_ACCESS_RIGHTS, tr_ar);
   }
   if (! IsLimitAccessRightsConsistent(tr_limit, tr_ar)) {
      wprintf(L"VMENTER FAIL: VMCS guest TR.AR/LIMIT malformed\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        tr_ar &= ~(0xfffe0f00); 
+        if ((tr_ar >> 15) & 1){
+           if ((tr_limit & 0xfff) != 0xfff) {
+              tr_ar &= ~(1<<15);
+           }
+        }
+        else {
+           if ((tr_limit & 0xfff00000) != 0) {
+              ldtr_ar |= 1<<15;
+           }
+        }
+        vmwrite(VMCS_32BIT_GUEST_LDTR_ACCESS_RIGHTS, tr_ar);
   }
 
   switch(guest.tr.cache.type) {
@@ -2072,9 +2136,28 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   guest.activity_state = vmread(VMCS_32BIT_GUEST_ACTIVITY_STATE);
   if (guest.activity_state > BX_VMX_LAST_ACTIVITY_STATE) {
     wprintf(L"VMENTER FAIL: VMCS guest activity state %d\n", guest.activity_state);
-    return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    guest.activity_state = 0;
+    vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
   }
-
+  if ((((VMX_MSR_MISC >> 6)&0x7) & 0x1) == 0 && guest.activity_state == 1) {
+    wprintf(L"VMENTER FAIL: VMCS guest activity state %d\n", guest.activity_state);
+   //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    guest.activity_state = 0;
+    vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
+  }
+  if ((((VMX_MSR_MISC >> 6)&0x7) & 0x2) == 0 && guest.activity_state == 2) {
+    wprintf(L"VMENTER FAIL: VMCS guest activity state %d\n", guest.activity_state);
+   //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    guest.activity_state = 0;
+    vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
+  }
+  if ((((VMX_MSR_MISC >> 6)&0x7) & 0x4) == 0 && guest.activity_state == 3) {
+    wprintf(L"VMENTER FAIL: VMCS guest activity state %d\n", guest.activity_state);
+   //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    guest.activity_state = 0;
+    vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
+  }
   if (guest.activity_state == BX_ACTIVITY_STATE_HLT) {
     if (guest.sregs[BX_SEG_REG_SS].cache.dpl != 0) {
       wprintf(L"VMENTER FAIL: VMCS guest HLT state with SS.DPL=%d\n", guest.sregs[BX_SEG_REG_SS].cache.dpl);
@@ -2093,7 +2176,9 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   if (guest.interruptibility_state & 0x3) {
     if (guest.activity_state != BX_ACTIVITY_STATE_ACTIVE) {
       wprintf(L"VMENTER FAIL: VMCS guest interruptibility state broken when entering non active CPU state %d\n", guest.activity_state);
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.activity_state = BX_ACTIVITY_STATE_ACTIVE;
+      vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
     }
   }
 
@@ -2101,13 +2186,17 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
       (guest.interruptibility_state & BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS))
   {
     wprintf(L"VMENTER FAIL: VMCS guest interruptibility state broken\n");
-    return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+   //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    guest.interruptibility_state &= ~BX_VMX_INTERRUPTS_BLOCKED_BY_MOV_SS;
+    vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE, guest.interruptibility_state);
   }
 
   if ((guest.rflags & EFlagsIFMask) == 0) {
     if (guest.interruptibility_state & BX_VMX_INTERRUPTS_BLOCKED_BY_STI) {
       wprintf(L"VMENTER FAIL: VMCS guest interrupts can't be blocked by STI when EFLAGS.IF = 0\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.interruptibility_state &= ~BX_VMX_INTERRUPTS_BLOCKED_BY_STI;
+      vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE, guest.interruptibility_state);
     }
   }
 
@@ -2117,22 +2206,32 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
     if (event_type == BX_EXTERNAL_INTERRUPT) {
       if ((guest.interruptibility_state & 0x3) != 0 || (guest.rflags & EFlagsIFMask) == 0) {
         wprintf(L"VMENTER FAIL: VMCS guest interrupts blocked when injecting external interrupt\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-      }
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.interruptibility_state &= ~(0x3);
+        guest.rflags |= EFlagsIFMask;
+        vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE, guest.interruptibility_state);
+        vmwrite(VMCS_GUEST_RFLAGS, guest.rflags);
+      } 
     }
     if (event_type == BX_NMI) {
       if ((guest.interruptibility_state & 0x3) != 0) {
         wprintf(L"VMENTER FAIL: VMCS guest interrupts blocked when injecting NMI\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        guest.interruptibility_state &= ~(0x3);
+        vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE, guest.interruptibility_state);
       }
     }
     if (guest.activity_state == BX_ACTIVITY_STATE_WAIT_FOR_SIPI) {
       wprintf(L"VMENTER FAIL: No guest interruptions are allowed when entering Wait-For-Sipi state\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.activity_state = BX_ACTIVITY_STATE_ACTIVE;
+      vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
     }
     if (guest.activity_state == BX_ACTIVITY_STATE_SHUTDOWN && event_type != BX_NMI && vector != BX_MC_EXCEPTION) {
       wprintf(L"VMENTER FAIL: Only NMI or #MC guest interruption is allowed when entering shutdown state\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.activity_state = BX_ACTIVITY_STATE_ACTIVE;
+      vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
     }
   }
 
@@ -2144,14 +2243,18 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
     if (guest.activity_state == BX_ACTIVITY_STATE_WAIT_FOR_SIPI) {
       wprintf(L"VMENTER FAIL: The activity state must not indicate the wait-for-SIPI state if entering to SMM guest\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.activity_state = BX_ACTIVITY_STATE_ACTIVE;
+      vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, guest.activity_state);
     }
   }
 
   if (guest.interruptibility_state & BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED) {
     if (! in_smm) {
       wprintf(L"VMENTER FAIL: VMCS SMI blocked when not in SMM mode\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      guest.interruptibility_state &= ~BX_VMX_INTERRUPTS_BLOCKED_SMI_BLOCKED;
+      vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE, guest.interruptibility_state);
     }
   }
 

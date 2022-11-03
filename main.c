@@ -196,19 +196,19 @@ char vmcs_backup[4096] __attribute__ ((aligned (4096)));
 char shadow_vmcs[4096] __attribute__ ((aligned (4096)));
 char shadow_vmcs2[4096] __attribute__ ((aligned (4096)));
 char vmxon_region[4096] __attribute__ ((aligned (4096)));
-    uint32_t get_seg_limit(uint32_t selector)
-    {
+uint32_t get_seg_limit(uint32_t selector)
+{
 	uint32_t limit;
-        asm volatile ("lsl %1, %0" : "=r" (limit) : "r" (selector));
+    asm volatile ("lsl %1, %0" : "=r" (limit) : "r" (selector));
 	return limit;
-    }
-    uint32_t get_seg_access_rights(uint32_t selector)
-    {
+}
+int32_t get_seg_access_rights(uint32_t selector)
+{
 	uint32_t access_rights;
 	asm volatile ("lar %1, %0" : "=r" (access_rights) : "r" (selector));
 	return access_rights >> 8;
-    }
-    uint64_t get_seg_base(uint32_t selector) { return 0; }
+}
+uint64_t get_seg_base(uint32_t selector) { return 0; }
 uint64_t count = 0;
 void host_entry(uint64_t arg)
 {
@@ -216,6 +216,7 @@ void host_entry(uint64_t arg)
     uint64_t reason = vmread(0x4402);
     // wprintf(L"Start fuzzing...\r\n");
     // wprintf(L"vmexit reason %0d\r\n", reason);
+        wprintf(L"VM exit reason %d\n",reason);        
     
     if (reason & 0x80000000){
         wprintf(L"VM exit reason 0x%x\n",reason);        
@@ -223,7 +224,7 @@ void host_entry(uint64_t arg)
         // uint64_t len = vmread(0x440C); // VM-exit instruction length
         // vmwrite(0x681E, rip + len);
         // asm volatile("vmresume\n\t");
-
+        print_exitreason(reason);
         __builtin_longjmp(env, 1);
         wprintf(L"pin based ctrl 0x4000: 0x%x\r\n",vmread(0x4000));
         wprintf(L"cpu based ctrl 0x4002: 0x%x\r\n",vmread(0x4002));
@@ -239,6 +240,7 @@ void host_entry(uint64_t arg)
         uint64_t len = vmread(0x440C); // VM-exit instruction length
         wprintf(L"exit reason = 0, rip = 0x%x, len = %d\n", rip,len);
         wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
+        print_exitreason(reason);
         __builtin_longjmp(env, 1);
         wprintf(L"pin based ctrl 0x4000: 0x%x\r\n",vmread(0x4000));
         wprintf(L"cpu based ctrl 0x4002: 0x%x\r\n",vmread(0x4002));
@@ -268,9 +270,31 @@ void host_entry(uint64_t arg)
         __builtin_longjmp(env, 1);
         asm volatile("vmresume\n\t");
     }
-    if(reason != 18)
+    if (reason == 52){
+        vmwrite(0x482e,0xffffffff);
+        asm volatile("vmresume\n\t");
+    }    
+    if (reason == 46){
+        // vmwrite(0x482e,0xffffffff);
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        asm volatile("vmresume\n\t");
+    }
+    if(reason != 18){
         wprintf(L"VM exit reason %d\n",reason);        
+        // for (int i = 0; i < 152;i++){
+        //     wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
+        // }
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        asm volatile("vmresume\n\t");
+        __builtin_longjmp(env, 1);
+    }
     if (reason == 18) {
+        // if (count == 0){
+        //     input_buf[4001] = 0;
+        // }
+        // else{
+        //     input_buf[4001] = 1;
+        // }
 	if (arg == 0) {
         vmcall_with_vmcall_number(13);
         // print_exitreason(reason);
@@ -341,7 +365,7 @@ void host_entry(uint64_t arg)
             // wprintf(L"vmread/write start\n");
 
             for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
-            // for (int i = 1500; i <3120/sizeof(uint16_t); i += 6) {
+            // for (int i = 30; i <120/sizeof(uint16_t); i += 6) {
                 index = input_buf[i];
                     windex = (uint64_t)(input_buf[i]%4);
                     wvalue = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+4] << 32 | (uint64_t)input_buf[i+5] << 16| (uint64_t)input_buf[i+2]; 
@@ -365,26 +389,24 @@ void host_entry(uint64_t arg)
                 if (
                     /* VMCS 16-bit guest-state fields 0x80x */
                     // (windex & 0xfff0) == 0x800 || 
-                    // (windex >= 0x80C && windex < 0xC00) || 
+                    (windex >= 0x80E && windex < 0xC00) 
                     // (windex > 0x810 && windex < 0xC00) || 
-                    /* VMCS 16-bit host-state fields 0xc0x */
-                    (windex & 0xfff0) == 0xc00 ||
+
                     /* VMCS 64-bit control fields 0x20xx */
-                    (windex & 0xff00) == 0x2000 ||
+                    || (windex & 0xff00) == 0x2000 
                     /* VMCS 64-bit guest state fields 0x28xx */
                     // (windex & 0xff00) == 0x2800 ||
-                    (windex >= 0x2800 && windex < 0x2806) || 
-                    (windex >= 0x2808 && windex < 0x2C00) || 
-                    
-                    /* VMCS 64-bit host state fields 0x2cxx */
-                    (windex & 0xff00) == 0x2c00 ||
+                    || (windex >= 0x2800 && windex < 0x2806) 
+                    || (windex >= 0x2808 && windex < 0x2C00)  
                     /* VMCS natural width guest state fields 0x68xx */
-                    // (windex & 0xff00) == 0x6800 ||
-                    windex == 0x6802|| 
-                    (windex >= 0x6806 && windex < 0x6C00) || 
+                    // || (windex & 0xff00) == 0x6800 
+                    || windex == 0x6802
+                    || (windex >= 0x6806 && windex < 0x6C00) 
 
-                    /* VMCS natural width host state fields 0x6cxx*/
-                    (windex & 0xff00) == 0x6c00 ||
+                    /* VMCS host state fields */
+                    || (windex & 0xfff0) == 0xc00 /* VMCS 16-bit host-state fields 0xc0x */
+                    || (windex & 0xff00) == 0x2c00 /* VMCS 64-bit host state fields 0x2cxx */
+                    || (windex & 0xff00) == 0x6c00 /* VMCS natural width host state fields 0x6cxx*/
                 // windex == 0x4000|| PIN_BASED_EXEC_CONTROLS
                 // windex == 0x4002|| PROCESSOR_BASED_VMEXEC_CONTROLS
                 // windex == 0x400a|| 
@@ -392,16 +414,21 @@ void host_entry(uint64_t arg)
                 // windex == 0x400c|| VMEXIT_CONTROLS
                 // windex == 0x4012|| VMENTRY_CONTROLS
                 // windex == 0x400e || 
-                windex == 0x4010|| 
-                windex == 0x4014|| 
+                || windex == 0x4010 // vmexit msr load count
+                || windex == 0x4014 // vmentry msr load count
+                || windex == 0x4016 //VMENTRY_INTERRUPTION_INFO
+                || windex == 0x4826 // guest activity state
+                || windex == 0x4824 // guest interuptibility state
 
-                windex == 0x4826||
-                windex == 0x4824||
-                windex == 0x4016
-
-                || windex == 0x4800|| windex == 0x4802|| windex == 0x4806
-                || windex == 0x4808|| windex == 0x480a|| windex == 0x480e
-                || windex == 0x4810|| windex == 0x4812
+                || windex == 0x4800
+                || windex == 0x4802
+                || windex == 0x4806
+                || windex == 0x4808
+                || windex == 0x480a
+                || windex == 0x480c
+                || windex == 0x480e
+                || windex == 0x4810
+                || windex == 0x4812
 
                 // || windex == 0x4814 // ES_ACCESS_RIGHTS 
                 || windex == 0x4816 // CS_ACCESS_RIGHTS
@@ -409,9 +436,8 @@ void host_entry(uint64_t arg)
                 // || windex == 0x481a // DS_ACCESS_RIGHTS
                 // || windex == 0x481c // FS_ACCESS_RIGHTS
                 // || windex == 0x481e // GS_ACCESS_RIGHTS
-
-                || windex == 0x4820
-                || windex == 0x4822
+                // || windex == 0x4820
+                // || windex == 0x4822
 
                 //RO fields
                 ||(windex & 0xff00) == 0x2400
@@ -471,21 +497,44 @@ void host_entry(uint64_t arg)
                         wvalue &= ~(1<<14);
                         wvalue |= 1<<13;
                     }
-                    if (windex == 0x4814 || windex == 0x481a || windex == 0x481c || windex == 0x481e){
+                    if (windex == 0x4814 
+                     || windex == 0x481a 
+                     || windex == 0x481c 
+                     || windex == 0x481e
+                     ){
                         // wvalue |= (1<<4 | 1<<15|1<<0);
                         wvalue |= (1<<4);
                         // wvalue |= (1<<4 | 1<<15);
                         // wvalue |= (1<<1);
                         // wvalue &= ~(1<<16);
                         // wvalue &= ~(1<<16);
-                    // wprintf(L"%d, vmwrite(%x, %x)\r\n", i, windex, wvalue);
                     }
                     if(windex == 0x4818){ // SS access rights
                         wvalue |= (1<<4);
-                    
+                    }
+                    if(windex == 0x4820){ // SS access rights
+                        wvalue &= ~(1<<4);
+                    }
+                    if(windex == 0x4822){ // SS access rights
+                        wvalue &= ~0xf;
+                        wvalue |= 0xb;
+                        wvalue &= ~(1<<4);
+                        wvalue &= ~(1<<16);
+                    }
+                    if(windex == 0x4826) {
+                        wvalue = 0;
+                    }
+                    if(windex == 0x4824) {
+                        // wvalue |= 1<<31 ;
+                        // wvalue &= ~((0x7) <<8);
+                        // wvalue |= ((0x2) <<8);
+                    // wprintf(L"vmwrite(0x%x, 0x%x);\r\n", windex, wvalue);
+                    // wprintf(L"vmwrite(0x4018, 0x%x);\r\n", vmread(0x4018));
+                    // wprintf(L"vmwrite(0x401a, 0x%x);\r\n", vmread(0x401a));
                     }
                     vmwrite(0x482e,0xffffffff);
                     vmwrite(windex, wvalue);
+                    // wprintf(L"%d, vmwrite(%x, %x)\r\n", i, windex, wvalue);
 
                     
                     // windex = 0x80e;
@@ -494,50 +543,92 @@ void host_entry(uint64_t arg)
 
                     // }
                     // wprintf(L"%d, vmwrite(%x, %x)\r\n", i, windex, wvalue);
-
-                    // vmwrite(0x0800, wvalue); // ES selector
-                    // vmwrite(0x0802, wvalue); // CS selector
-                    // vmwrite(0x0804, wvalue); // SS selector
-                    // vmwrite(0x0806, wvalue); // DS selector
-                    // vmwrite(0x0808, wvalue); // FS selector
-                    // vmwrite(0x080a, wvalue); // GS selector
-                    // vmwrite(0x4000,0x7e);
-
-                    // wprintf(L"482e: %d", vmread(0x482e));
-
-                    // wprintf(L"%d,%x\n\r", i,windex);
-                    // wprintf(L"%d, vmwrite(%x, %x)\r\n", i, windex, wvalue);
-                    // ret = rdtsc();
-                    // vmwrite(windex1,wvalue);
-                    // vmwrite(windex2,wvalue);
-                    // vmwrite(windex3, wvalue);
-                    // // wprintf(L"%x\n",windex);
-                    // vmwrite(windex4,wvalue);
-                    // vmwrite(windex5,wvalue);
             }
     
+            input_buf[4001] = 1;
     // vmwrite(0x2806,(vmread(0x2806)&~(1<<10))&~(1<<8));
-    vmwrite(0x6800,vmread(0x6800)&~(BX_CR0_WP_MASK));
-    vmwrite(0x6804,vmread(0x6804)|BX_CR4_CET_MASK);
+    // vmwrite(0x6800,vmread(0x6800)&~(BX_CR0_WP_MASK));
+    // vmwrite(0x6804,vmread(0x6804)|BX_CR4_CET_MASK);
+// vmwrite(0x4016, 0x80000b00);
+// vmwrite(0x4016, 0x80000300);
+
+
 // wprintf(L"VMX_CR3_TARGET_MAX_CNT %d\n", VMX_MSR_MISC>>16&0xf);
+wprintf(L"MISC[30] %d\n", VMX_MSR_MISC>>30&0x1);
+wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
+    wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
+    // vmwrite(0x4826,0x123);
+// vmwrite(0x4824, 0x7c5fac41);
+// vmwrite(0x4018, 0x10c57a3e);
+// vmwrite(0x401a, 0x904358cb);
+    wprintf(L"guest interruptibility_state 0x%d\n",vmread(0x00004824));
 // wprintf(L"VMX_CR3_TARGET_MAX_CNT %d\n", VMX_CR3_TARGET_MAX_CNT);
 //      wprintf(L"target count %d\n", vmread(VMCS_32BIT_CONTROL_CR3_TARGET_COUNT));
+    wprintf(L"======================\n\r");
 
+        for (int i = 0; i < 152;i++){
+            uint32_t windex = vmcs_index[i];
+            if (
+                    /* VMCS 16-bit guest-state fields 0x80x */
+                    // (windex & 0xfff0) == 0x800 || 
+                    (windex >= 0x80C && windex < 0xC00) 
+                    // (windex > 0x810 && windex < 0xC00) || 
+                    /* VMCS 16-bit host-state fields 0xc0x */
+                    || (windex & 0xfff0) == 0xc00 
+                    /* VMCS 64-bit control fields 0x20xx */
+                    || (windex & 0xff00) == 0x2000 
+                    /* VMCS 64-bit guest state fields 0x28xx */
+                    // (windex & 0xff00) == 0x2800 ||
+                    || (windex >= 0x2800 && windex < 0x2806) 
+                    || (windex >= 0x2808 && windex < 0x2C00)  
+                    
+                    /* VMCS 64-bit host state fields 0x2cxx */
+                    || (windex & 0xff00) == 0x2c00 
+                    /* VMCS natural width guest state fields 0x68xx */
+                    // || (windex & 0xff00) == 0x6800 
+                    || windex == 0x6802
+                    || (windex >= 0x6806 && windex < 0x6C00) 
+
+                    /* VMCS natural width host state fields 0x6cxx*/
+                    || (windex & 0xff00) == 0x6c00 
+                // windex == 0x4000|| PIN_BASED_EXEC_CONTROLS
+                // windex == 0x4002|| PROCESSOR_BASED_VMEXEC_CONTROLS
+                // windex == 0x400a|| 
+                // windex == 0x401e|| SECONDARY_VMEXEC_CONTROL
+                // windex == 0x400c|| VMEXIT_CONTROLS
+                // windex == 0x4012|| VMENTRY_CONTROLS
+                // windex == 0x400e || 
+                // || windex == 0x4010 // vmexit msr load count
+                // || windex == 0x4014 // vmentry msr load count
+
+                //RO fields
+                ||(windex & 0xff00) == 0x2400
+                ||(windex & 0xff00) == 0x4400
+                ||(windex & 0xff00) == 0x6400
+                ){
+                continue;
+            }
+            // wprintf(L"vmwrite(0x%x, 0x%x);\r\n", windex, vmread(windex));
+        }
+            // wprintf(L"vmwrite(0x6820, 0x%x);\r\n", vmread(0x6820));
+
+    wprintf(L"======================\n\r");
 //     0x4000: 0x56
 // 0x4002: 0x610f97e
 // 0x401e: 0x211797c
 // vmwrite(0x4000, 0x56);
+// vmwrite(0x4010, 0x56);
 // vmwrite(0x4002, 0x610f97e);
 // vmwrite(0x401e, 0x211797c);
     // uint32_t ecx;
     // asm volatile ("cpuid" : "=c" (ecx) : "a" (7) : "ebx", "edx");
     // wprintf(L"CET supprt %d\n", ecx>>7 &0x1);
-    
+
     // wprintf(L"VMX_MSR_CR4_FIXED0 0x%0x\n", VMX_MSR_CR4_FIXED0);
     // wprintf(L"VMX_MSR_CR4_FIXED1 0x%0x\n", VMX_MSR_CR4_FIXED1);
     // wprintf(L"VMX_MSR_CR0_FIXED0 0x%0x\n", VMX_MSR_CR0_FIXED0);
     // wprintf(L"VMX_MSR_CR0_FIXED1 0x%0x\n", VMX_MSR_CR0_FIXED1);
-    // wprintf(L"**********\n\r");
+    wprintf(L"**********\n\r");
     // vmwrite(0x4816, 0xb0ff);     
     // vmwrite(0x4818, 0xc0f3); 
     // vmwrite(0x802, 0x2b); 
@@ -564,13 +655,28 @@ void host_entry(uint64_t arg)
     // wprintf(L"SS RPL = %d\n", (vmread(0x804))&0x3);
     // wprintf(L"CS DPL = %d\n", (vmread(0x4816)>>5)&0x3);
     // wprintf(L"CS RPL = %d\n", (vmread(0x802))&0x3);
-    // wprintf(L"**********\n\r");
+    wprintf(L"cs 0x%x, ss 0x%x \n",vmread(0x802),vmread(0x804));
+    wprintf(L"ar cs 0x%x, ss 0x%x \n",get_seg_access_rights(vmread(0x802)),get_seg_access_rights(vmread(0x804)));
+    wprintf(L"limit cs %0x, ss %0x\r\n",get_seg_limit(vmread(0x802)),get_seg_limit(vmread(0x804)) );
+    wprintf(L"limit cs %0x\n",vmread(0x4802));
 
+    // wprintf(L"access es %0x, cs %0x\r\n",get_seg_access_rights(regs.es),get_seg_access_rights(regs.cs));
+    wprintf(L"base cs %0x, ss %0x\r\n",get_seg_base(vmread(0x802)),get_seg_base(vmread(0x804)));
+  
+    wprintf(L"**********\n\r");
+    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
+    vmwrite(0x4800,get_seg_limit(vmread(0x800)));
+    vmwrite(0x4802,get_seg_limit(vmread(0x802)));
+    vmwrite(0x4804,get_seg_limit(vmread(0x804)));
+    vmwrite(0x4806,get_seg_limit(vmread(0x806)));
+    vmwrite(0x4808,get_seg_limit(vmread(0x808)));
+    vmwrite(0x480a,get_seg_limit(vmread(0x80a)));
     // vmwrite(0x4814,0x809b);
     // vmwrite(0x4816,0xa09b);
-    vmwrite(0x80e,wvalue);
-    vmwrite(0x80c,wvalue);
-    vmwrite(0x810,wvalue);
+    // vmwrite(0x80e,wvalue);
+    // vmwrite(0x80c,wvalue);
+    // vmwrite(0x810,wvalue);
     enum VMX_error_code is_vmentry_error = VMenterLoadCheckVmControls();
     if (! is_vmentry_error){
         wprintf(L"VMX CONTROLS OK!\r\n");
@@ -607,8 +713,14 @@ void host_entry(uint64_t arg)
             break;
         }
     }
+    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
+    wprintf(L"vmwrite(0x401a, 0x%x);\n", vmread(0x401a));
 
     // wprintf(L"**********\n\r");
+    // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
+    // // vmwrite(0x4826,0x3);
+    // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
     // wprintf(L"CS ar = 0x%x\n", vmread(0x4816));
     // wprintf(L"SS ar = 0x%x\n", vmread(0x4818));
     // wprintf(L"CS selector = 0x%x\n", (vmread(0x802)));
@@ -620,6 +732,74 @@ void host_entry(uint64_t arg)
     // wprintf(L"CS DPL = %d\n", (vmread(0x4816)>>5)&0x3);
     // wprintf(L"CS RPL = %d\n", (vmread(0x802))&0x3);
     // wprintf(L"**********\n\r");
+    // wprintf(L"======================\n\r");
+
+    //     for (int i = 0; i < 152;i++){
+    //         uint32_t windex = vmcs_index[i];
+    //         if (
+    //                 /* VMCS 16-bit guest-state fields 0x80x */
+    //                 // (windex & 0xfff0) == 0x800 || 
+    //                 // (windex >= 0x80C && windex < 0xC00) || 
+    //                 // (windex > 0x810 && windex < 0xC00) || 
+    //                 /* VMCS 16-bit host-state fields 0xc0x */
+    //                 (windex & 0xfff0) == 0xc00 
+    //                 /* VMCS 64-bit control fields 0x20xx */
+    //                 || (windex & 0xff00) == 0x2000 
+    //                 /* VMCS 64-bit guest state fields 0x28xx */
+    //                 // (windex & 0xff00) == 0x2800 ||
+    //                 || (windex >= 0x2800 && windex < 0x2806) 
+    //                 || (windex >= 0x2808 && windex < 0x2C00)  
+                    
+    //                 /* VMCS 64-bit host state fields 0x2cxx */
+    //                 || (windex & 0xff00) == 0x2c00 
+    //                 /* VMCS natural width guest state fields 0x68xx */
+    //                 // || (windex & 0xff00) == 0x6800 
+    //                 || windex == 0x6802
+    //                 || (windex >= 0x6806 && windex < 0x6C00) 
+
+    //                 /* VMCS natural width host state fields 0x6cxx*/
+    //                 || (windex & 0xff00) == 0x6c00 
+    //             // windex == 0x4000|| PIN_BASED_EXEC_CONTROLS
+    //             // windex == 0x4002|| PROCESSOR_BASED_VMEXEC_CONTROLS
+    //             // windex == 0x400a|| 
+    //             // windex == 0x401e|| SECONDARY_VMEXEC_CONTROL
+    //             // windex == 0x400c|| VMEXIT_CONTROLS
+    //             // windex == 0x4012|| VMENTRY_CONTROLS
+    //             // windex == 0x400e || 
+    //             || windex == 0x4010 // vmexit msr load count
+    //             || windex == 0x4014 // vmentry msr load count
+    //             || windex == 0x4016
+
+    //             // windex == 0x4826|| // guest activity state
+    //             || windex == 0x4824 // guest interuptibility state
+    //             || windex == 0x4800
+    //             || windex == 0x4802
+    //             || windex == 0x4806
+    //             || windex == 0x4808|| windex == 0x480a
+    //             || windex == 0x480e
+    //             || windex == 0x4810|| windex == 0x4812
+
+    //             // || windex == 0x4814 // ES_ACCESS_RIGHTS 
+    //             || windex == 0x4816 // CS_ACCESS_RIGHTS
+    //             || windex == 0x4818 // SS_ACCESS_RIGHTS
+    //             // || windex == 0x481a // DS_ACCESS_RIGHTS
+    //             // || windex == 0x481c // FS_ACCESS_RIGHTS
+    //             // || windex == 0x481e // GS_ACCESS_RIGHTS
+    //             || windex == 0x4820
+    //             || windex == 0x4822
+
+    //             //RO fields
+    //             ||(windex & 0xff00) == 0x2400
+    //             ||(windex & 0xff00) == 0x4400
+    //             ||(windex & 0xff00) == 0x6400
+    //             ){
+    //             continue;
+    //         }
+    //         wprintf(L"vmwrite(0x%x, 0x%x);\r\n", windex, vmread(windex));
+    //     }
+    //         wprintf(L"vmwrite(0x6820, 0x%x);\r\n", vmread(0x6820));
+
+    // wprintf(L"======================\n\r");
 	// print_results();
     uint64_t rip = vmread(0x681E); // Guest RIP
     uint64_t len = vmread(0x440C); // VM-exit instruction length
@@ -806,7 +986,7 @@ void guest_entry(void)
 {
     while(1){
         vmcall(1);
-        input_buf[4001] = 1;
+        // input_buf[4001] = 1;
     }
     while(1){
         // SystemTable->BootServices->Stall(10);
@@ -1020,20 +1200,18 @@ EfiMain (
         uint16_t vendor_id = ReadVendorId(0,dev,0);
         if (vendor_id == 0x1af4){
             ivshm_dev = dev;
-            wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n",0,dev,0, vendor_id);
+            // wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n",0,dev,0, vendor_id);
             break;
         }
     }
-    wprintf(L"%d, dev %d\r\n",(ivshm_dev==dev),ivshm_dev);
+    // wprintf(L"%d, dev %d\r\n",(ivshm_dev==dev),ivshm_dev);
     // ivshm_dev++;
-    uintptr_t bar0 = ReadBar(0,dev,0, 0);
-    uintptr_t bar1 = ReadBar(0,dev,0, 1);
-    uintptr_t bar2 = ReadBar(0,dev,0, 2);
-    wprintf(L"bar0:%x, bar1:%x, bar2:%x\r\n",bar0,bar1,bar2);
+    uintptr_t bar2 = ReadBar(0,ivshm_dev,0, 2);
+    // wprintf(L"bar0:%x, bar1:%x, bar2:%x\r\n",bar0,bar1,bar2);
     input_buf = (void *) (bar2);
 
-    for(int i = 0; i < 20; i++){
-    wprintf(L"buf[%d] = %x\r\n", i,input_buf[i]);}
+    // for(int i = 0; i < 20; i++){
+    // wprintf(L"buf[%d] = %x\r\n", i,input_buf[i]);}
     input_buf[3000] = 0xdead;
     // return 1;
 
@@ -1134,16 +1312,16 @@ EfiMain (
     // uint32_t pinbased_ctls = apply_allowed_settings(0x28, 0x48d);
     uint32_t pinbased_ctls = apply_allowed_settings(0x7f, 0x481);
     vmwrite(0x482e,0xffffffff);
-    wprintf(L"0x481: 0x%x\r\n",rdmsr(0x481));
-    wprintf(L"0x48b: 0x%x\r\n",rdmsr(0x48b));
+    // wprintf(L"0x481: 0x%x\r\n",rdmsr(0x481));
+    // wprintf(L"0x48b: 0x%x\r\n",rdmsr(0x48b));
 
     vmwrite(0x4000, pinbased_ctls);  // Pin-based VM-execution controls
 
     // wprintf(L"0x48d: 0x%x\n\r",apply_allowed_settings(0x3e, 0x48d));
     // wprintf(L"mixed 0x482 %0x\n",rdmsr(0x48e) |0x10000000|0x80000|0x100000|0x8000|0x10000);
-    wprintf(L"0x482: 0x%x\r\n",rdmsr(0x482));
-    wprintf(L"0x48e: 0x%x\r\n",rdmsr(0x48e));
-    wprintf(L"0x485: 0x%x\r\n",rdmsr(0x485));
+    // wprintf(L"0x482: 0x%x\r\n",rdmsr(0x482));
+    // wprintf(L"0x48e: 0x%x\r\n",rdmsr(0x48e));
+    // wprintf(L"0x485: 0x%x\r\n",rdmsr(0x485));
     // wprintf(L"apply 0x482 %0x\r\n",apply_allowed_settings(0x0,0x48e));0x1e8c
 
     // wprintf(L"0x%x\r\n\r",1<<31);
@@ -1170,33 +1348,12 @@ EfiMain (
     // enlightened_vmcs213fbf
     // vmwrite(0x401e, apply_allowed_settings(0x02110d4d,0x48b));
     // vmwrite(0x401e, apply_allowed_settings(0x0200000d,0x48b));
-    wprintf(L"efer:0x%x\r\n", rdmsr(0xC0000080));
-    wprintf(L"pin based ctrl 0x4000: 0x%x\r\n",vmread(0x4000));
-    wprintf(L"cpu based ctrl 0x4002: 0x%x\r\n",vmread(0x4002));
-    wprintf(L"vmexit ctrl    0x400c: 0x%x\r\n",vmread(0x400c));
-    wprintf(L"vmentry ctrl   0x4012: 0x%x\r\n",vmread(0x4012));
-    wprintf(L"secondary ctrl 0x401e: 0x%x\r\n",vmread(0x401e)); // secondary
-
-                    //     if(index%5 ==0){
-                    // //“virtualize APIC-accesses” VM-execution control is 1,
-                    // vmwrite(0x401e,vmread(0x401e) | (1<<0));
-                    // vmwrite(0x401e,vmread(0x401e) & ~(1<<4));
-                    // }else if(index%5 ==1){
-                    // // “virtualize x2APIC mode” VM-execution control is 1,
-                    // vmwrite(0x401e,vmread(0x401e) & ~(1<<0));
-                    // vmwrite(0x401e,vmread(0x401e) | (1<<4));
-                    // }else if (index%5 ==2){
-                    // // “use TPR shadow” VM-execution control is 0,
-                    // vmwrite(0x4002, vmread(0x4002) & ~(1<<21));
-                    // vmwrite(0x401e,vmread(0x401e) & ~(1<<4));
-                    // vmwrite(0x401e,vmread(0x401e) & ~(1<<8));
-                    // vmwrite(0x401e,vmread(0x401e) & ~(1<<9));
-                    // }else if (index%5 ==3){
-                    // //“virtual-interrupt delivery” VM-execution control is 1
-                    // vmwrite(0x401e,vmread(0x401e) | (1<<9));
-                    // vmwrite(0x4000, vmread(0x4000) | (1<<0));  //  External-interrupt
-                    // vmwrite(0x4002, vmread(0x4002) | (1<<21));
-                    // }
+    // wprintf(L"efer:0x%x\r\n", rdmsr(0xC0000080));
+    // wprintf(L"pin based ctrl 0x4000: 0x%x\r\n",vmread(0x4000));
+    // wprintf(L"cpu based ctrl 0x4002: 0x%x\r\n",vmread(0x4002));
+    // wprintf(L"vmexit ctrl    0x400c: 0x%x\r\n",vmread(0x400c));
+    // wprintf(L"vmentry ctrl   0x4012: 0x%x\r\n",vmread(0x4012));
+    // wprintf(L"secondary ctrl 0x401e: 0x%x\r\n",vmread(0x401e)); // secondary
     // wrmsr()
     //x2apic mode*****************************
 
@@ -1310,7 +1467,7 @@ EfiMain (
     vmwrite_gh(0x6802, 0x6c02, regs.cr3);
     vmwrite_gh(0x6804, 0x6c04, regs.cr4);
 
-    wprintf(L"cr0 %0x, cr4 %0x\r\n", regs.cr0,regs.cr4);
+    // wprintf(L"cr0 %0x, cr4 %0x\r\n", regs.cr0,regs.cr4);
 
     vmwrite(0x6806, get_seg_base(regs.es)); // es base
     vmwrite(0x6808, get_seg_base(regs.cs)); // cs base
@@ -1328,11 +1485,11 @@ EfiMain (
     vmwrite(0x6C16, (uint64_t)__host_entry); // Host RIP
     vmwrite(0x681C, (uint64_t)&guest_stack[sizeof(guest_stack)]); // GUEST_RSP
     vmwrite(0x681E, (uint64_t)guest_entry); // Guest RIP
-    wprintf(L"0x681e: %x\r\n guest_entry: %x\r\n", vmread(0x681e), (uint64_t)guest_entry);
+    // wprintf(L"0x681e: %x\r\n guest_entry: %x\r\n", vmread(0x681e), (uint64_t)guest_entry);
     asm volatile ("pushf; pop %%rax" : "=a" (regs.rflags));
     regs.rflags &= ~0x200ULL; // clear interrupt enable flag
     vmwrite(0x6820, regs.rflags);
-    wprintf(L"rflags %0x\r\n", vmread(0x6820));
+    // wprintf(L"rflags %0x\r\n", vmread(0x6820));
     wprintf(L"es %0x, cs %0x, ss %0x, ss %0x, ds %0x, fs%0x, gs %0x, tr %0x, ldtr %0x\r\n",
     regs.es,regs.cs,regs.ss, regs.ds,regs.ds,regs.fs,regs.gs,regs.tr, regs.ldt);    
     
