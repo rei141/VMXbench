@@ -5,79 +5,83 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <semaphore.h> 
+#include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/shm.h>
 // #include <process.h>
+#include <sys/mman.h>
 
-#define FILE_MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
+
 int main(int argc, char** argv) {
     int ret;
-    char *qemu_command = "/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
-    // printf("hello\n");
-    // char copy[100];
+
     const char *afl_shm_id_str = getenv("__AFL_SHM_ID");
+    uint8_t *afl_area_ptr = NULL;
+    int afl_shm_id;
     if (afl_shm_id_str != NULL) {
-        FILE * f = fopen("hoge","w");
-        fclose(f);
+        afl_shm_id = atoi(afl_shm_id_str);
+        afl_area_ptr = shmat(afl_shm_id, NULL, 0);
     }
-    // sem_t *sem;
-    // sem_unlink("/sem");
-    // sem = sem_open("/sem", O_CREAT, FILE_MODE,0); 
-    // sem_wait(sem);
-    // printf("hello\n");
-    struct tm tm;
-    char rm1[100];
-    char * arg[] = {"/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64","-nodefaults", "-machine", "accel=kvm", "-cpu", "host", "-m", "128", "-bios" ,"OVMF.fd", "-hda", "json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }", "-nographic" ,"-serial" ,"mon:stdio", "-no-reboot", "-smp", "1",NULL};
-    
-    ret = system("rm kvm_coverage kvm_intel_coverage -f");
-    // execlp("sh","sh",qemu_command,NULL);
 
-    uint16_t buf[4096/sizeof(uint16_t)];
+    int fd = shm_open("ivshmem", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
 
-    // int n = read(0, buf,sizeof(buf));
+    if (fd == -1)
+        perror("open"), exit(1);
 
-    FILE * in = fopen("input/random_input", "rb");
+    uint16_t * ivmshm = (uint16_t *)mmap(NULL, 1024*1024,
+                                    PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if ((void *)ivmshm == MAP_FAILED)
+        perror("mmap"), exit(1);
+    ivmshm += 0x6;
 
-    fread(buf, sizeof(uint16_t), 4096/sizeof(uint16_t),in);
-    fclose(in);
-
-    FILE * input = fopen("image/input", "w");
-    fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
+    FILE * input = fopen("afl_input", "rb");
+    fread(ivmshm, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
     fclose(input);
 
-    // ret = system(qemu_command);
-    pid_t pid;
-    int status;
-    pid = fork();
-    if (pid == 0 ){
-        execv("/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64",arg);
-        // execlp("sh","sh",qemu_command,NULL);
-        exit(1);
-    }
-    else {
-        int ws;
-        pid_t pid = -1;
-        int options = 0;
-        pid_t cid = waitpid(pid,&ws,options);
-        if ( cid == -1) {
-            perror("wait");
-            exit(1);
+
+    int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (bitmap_fd == -1)
+        perror("open"), exit(1);
+    uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
+                                    PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
+    if ((void *)afl_bitmap == MAP_FAILED)
+        perror("mmap"), exit(1);
+    memset(afl_bitmap,0,65536);
+
+
+    ivmshm[4000] = 1;
+    msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
+    // printf("a");
+    uint16_t flag= ivmshm[4001];
+        while(1){
+            flag = ivmshm[4001];
+            usleep(100);
+            if(flag == 1){
+                break;
+            }
         }
-        
-        // ret = system(qemu_command);
-        // kirokuyouni kopi******************************************8
-        // time_t t = time(NULL);
-        // localtime_r(&t, &tm);
-        // char copy[100];
-        // sprintf(copy,"cp image/input log_input/input_%02d_%02d_%02d_%02d_%02d -f",tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        // ret = system(copy);
-        // char mv1[100];
-        // sprintf(copy,"cp kvm_intel_coverage log_input/coverage_%02d_%02d_%02d_%02d_%02d -f",tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        // ret = system(copy);    
+    ivmshm[4001] = 0;
+    
+    int ret;
+    char *qemu_command = "sudo /home/ishii/work/qemu/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
+    // printf("hello\n");
+    ret = system(qemu_command);
 
-        // char mv2[100];
-        // sprintf(copy,"cp kvm_intel_bitmap log_input/bitmap_%02d_%02d_%02d_%02d_%02d -f",tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        // ret = system(copy);  
+
+    if (afl_shm_id_str != NULL) {
+    memcpy(afl_area_ptr,afl_bitmap,65536);
+    shmdt(afl_area_ptr);
     }
-
+    // if (munmap(afl_bitmap, 65536))
+    //     perror("munmap"), exit(1);
+    // memset(afl_bitmap,0,65536);
+    close(fd);
+    close(bitmap_fd);
+    if (munmap(ivmshm-6, 1024*1024))
+        perror("munmap"), exit(1);
+    if (munmap(afl_bitmap, 65536))
+        perror("munmap"), exit(1);
     return 0;
 }

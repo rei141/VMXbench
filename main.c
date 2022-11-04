@@ -215,8 +215,8 @@ void host_entry(uint64_t arg)
     // tsc_exit[index] = rdtsc() - arg;
     uint64_t reason = vmread(0x4402);
     // wprintf(L"Start fuzzing...\r\n");
-    // wprintf(L"vmexit reason %0d\r\n", reason);
-        wprintf(L"VM exit reason %d\n",reason);        
+    wprintf(L"vmexit reason %0d\r\n", reason);
+        // wprintf(L"VM exit reason %d\n",reason);        
     
     if (reason & 0x80000000){
         wprintf(L"VM exit reason 0x%x\n",reason);        
@@ -389,11 +389,14 @@ void host_entry(uint64_t arg)
                 if (
                     /* VMCS 16-bit guest-state fields 0x80x */
                     // (windex & 0xfff0) == 0x800 || 
-                    (windex >= 0x80E && windex < 0xC00) 
+                    // (windex >= 0x810 && windex < 0xC00) 
+                    // (windex >= 0x812 && windex < 0xC00) 
+                    // (windex >= 0x810 && windex < 0xC00) 
                     // (windex > 0x810 && windex < 0xC00) || 
 
                     /* VMCS 64-bit control fields 0x20xx */
-                    || (windex & 0xff00) == 0x2000 
+                    (windex & 0xff00) == 0x2000 
+                    // || (windex & 0xff00) == 0x2000 
                     /* VMCS 64-bit guest state fields 0x28xx */
                     // (windex & 0xff00) == 0x2800 ||
                     || (windex >= 0x2800 && windex < 0x2806) 
@@ -554,17 +557,17 @@ void host_entry(uint64_t arg)
 
 
 // wprintf(L"VMX_CR3_TARGET_MAX_CNT %d\n", VMX_MSR_MISC>>16&0xf);
-wprintf(L"MISC[30] %d\n", VMX_MSR_MISC>>30&0x1);
-wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
-    wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
+// wprintf(L"MISC[30] %d\n", VMX_MSR_MISC>>30&0x1);
+// wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
+//     wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
     // vmwrite(0x4826,0x123);
 // vmwrite(0x4824, 0x7c5fac41);
 // vmwrite(0x4018, 0x10c57a3e);
 // vmwrite(0x401a, 0x904358cb);
-    wprintf(L"guest interruptibility_state 0x%d\n",vmread(0x00004824));
+    // wprintf(L"guest interruptibility_state 0x%d\n",vmread(0x00004824));
 // wprintf(L"VMX_CR3_TARGET_MAX_CNT %d\n", VMX_CR3_TARGET_MAX_CNT);
 //      wprintf(L"target count %d\n", vmread(VMCS_32BIT_CONTROL_CR3_TARGET_COUNT));
-    wprintf(L"======================\n\r");
+    // wprintf(L"======================\n\r");
 
         for (int i = 0; i < 152;i++){
             uint32_t windex = vmcs_index[i];
@@ -612,7 +615,7 @@ wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
         }
             // wprintf(L"vmwrite(0x6820, 0x%x);\r\n", vmread(0x6820));
 
-    wprintf(L"======================\n\r");
+    // wprintf(L"======================\n\r");
 //     0x4000: 0x56
 // 0x4002: 0x610f97e
 // 0x401e: 0x211797c
@@ -628,7 +631,7 @@ wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
     // wprintf(L"VMX_MSR_CR4_FIXED1 0x%0x\n", VMX_MSR_CR4_FIXED1);
     // wprintf(L"VMX_MSR_CR0_FIXED0 0x%0x\n", VMX_MSR_CR0_FIXED0);
     // wprintf(L"VMX_MSR_CR0_FIXED1 0x%0x\n", VMX_MSR_CR0_FIXED1);
-    wprintf(L"**********\n\r");
+    // wprintf(L"**********\n\r");
     // vmwrite(0x4816, 0xb0ff);     
     // vmwrite(0x4818, 0xc0f3); 
     // vmwrite(0x802, 0x2b); 
@@ -655,23 +658,25 @@ wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
     // wprintf(L"SS RPL = %d\n", (vmread(0x804))&0x3);
     // wprintf(L"CS DPL = %d\n", (vmread(0x4816)>>5)&0x3);
     // wprintf(L"CS RPL = %d\n", (vmread(0x802))&0x3);
-    wprintf(L"cs 0x%x, ss 0x%x \n",vmread(0x802),vmread(0x804));
-    wprintf(L"ar cs 0x%x, ss 0x%x \n",get_seg_access_rights(vmread(0x802)),get_seg_access_rights(vmread(0x804)));
-    wprintf(L"limit cs %0x, ss %0x\r\n",get_seg_limit(vmread(0x802)),get_seg_limit(vmread(0x804)) );
-    wprintf(L"limit cs %0x\n",vmread(0x4802));
+    // wprintf(L"cs 0x%x, ss 0x%x \n",vmread(0x802),vmread(0x804));
+    // wprintf(L"ar cs 0x%x, ss 0x%x \n",get_seg_access_rights(vmread(0x802)),get_seg_access_rights(vmread(0x804)));
+    // wprintf(L"limit cs %0x, ss %0x\r\n",get_seg_limit(vmread(0x802)),get_seg_limit(vmread(0x804)) );
+    // wprintf(L"limit cs %0x\n",vmread(0x4802));
 
     // wprintf(L"access es %0x, cs %0x\r\n",get_seg_access_rights(regs.es),get_seg_access_rights(regs.cs));
-    wprintf(L"base cs %0x, ss %0x\r\n",get_seg_base(vmread(0x802)),get_seg_base(vmread(0x804)));
+    // wprintf(L"base cs %0x, ss %0x\r\n",get_seg_base(vmread(0x802)),get_seg_base(vmread(0x804)));
   
-    wprintf(L"**********\n\r");
-    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
-    wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
+    // wprintf(L"**********\n\r");
+    // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    // wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
     vmwrite(0x4800,get_seg_limit(vmread(0x800)));
     vmwrite(0x4802,get_seg_limit(vmread(0x802)));
     vmwrite(0x4804,get_seg_limit(vmread(0x804)));
     vmwrite(0x4806,get_seg_limit(vmread(0x806)));
     vmwrite(0x4808,get_seg_limit(vmread(0x808)));
     vmwrite(0x480a,get_seg_limit(vmread(0x80a)));
+    // vmwrite(0x480c,get_seg_limit(vmread(0x80c)));
+    // vmwrite(0x480e,get_seg_limit(vmread(0x80e)));
     // vmwrite(0x4814,0x809b);
     // vmwrite(0x4816,0xa09b);
     // vmwrite(0x80e,wvalue);
@@ -713,9 +718,9 @@ wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
             break;
         }
     }
-    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
-    wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
-    wprintf(L"vmwrite(0x401a, 0x%x);\n", vmread(0x401a));
+    // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    // wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
+    // wprintf(L"vmwrite(0x401a, 0x%x);\n", vmread(0x401a));
 
     // wprintf(L"**********\n\r");
     // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
@@ -809,6 +814,7 @@ wprintf(L"supported activity_state %d\n", VMX_MSR_MISC>>6&0x7);
     // vmwrite(0x681E, rip + len);
     // wprintf(L"%x\n", vmread(0x681e));
     // // __builtin_longjmp(env, 1);
+
     vmwrite(0x681E, rip + len);
     asm volatile("vmresume\n\t");
     wprintf(L"VMRESUME failed: \r\n");
