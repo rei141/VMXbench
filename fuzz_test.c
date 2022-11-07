@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
     FILE * input = fopen("afl_input", "rb");
     fread(ivmshm, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
     fclose(input);
+    msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
     printf("hello\n");
     // sem_post(sem);
     // ivmshm[3000]=0xdead;
@@ -67,9 +68,9 @@ int main(int argc, char** argv) {
         perror("mmap"), exit(1);
     memset(afl_bitmap,0,65536);
 
+    // printf("a"); 
+    ivmshm[4001] = 0;
     ivmshm[4000] = 1;
-    msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-    // printf("a");
     uint16_t flag= ivmshm[4001];
         while(1){
             flag = ivmshm[4001];
@@ -78,7 +79,7 @@ int main(int argc, char** argv) {
                 break;
             }
         }
-    ivmshm[4001] = 0;
+    // ivmshm[4001] = 0;
 
     // int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     // if (bitmap_fd == -1)
