@@ -2,13 +2,13 @@
 !*/
 !*.*
 /record
-/MdeModulePkg
+MdeModulePkg/*
 /record/
-/out
+out/*
 /input
 /image
 /*.efi
 
-/OVMF.fd
+OVMF.fd
 /afl_input
 /*.txt
