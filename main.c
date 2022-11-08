@@ -364,8 +364,10 @@ void host_entry(uint64_t arg)
             inv.ptr = 0;
             inv.ptr = (uint64_t)input_buf[1];
             invvpid((uint64_t)(input_buf[0]%4),&inv);
-            for (int i = 0; i < 4092/sizeof(uint16_t); i += 4) {
-            // for (int i = 30; i <120/sizeof(uint16_t); i += 4) {
+
+            // for (int i = 0; i < 4092/sizeof(uint16_t); i += 4) {
+            for (int i = 0*4; i <152*4; i += 4) {
+            // for (int i = 50*4; i <152*4; i += 4) {
                 if(i/4 == 152) {
                     break;
                 }
@@ -397,13 +399,13 @@ void host_entry(uint64_t arg)
                     || (windex & 0xfff0) == 0xc00 /* VMCS 16-bit host-state fields 0xc0x */
                     || (windex & 0xff00) == 0x2c00 /* VMCS 64-bit host state fields 0x2cxx */
                     || (windex & 0xff00) == 0x6c00 /* VMCS natural width host state fields 0x6cxx*/
-                // windex == 0x4000|| PIN_BASED_EXEC_CONTROLS
-                // windex == 0x4002|| PROCESSOR_BASED_VMEXEC_CONTROLS
-                // windex == 0x400a|| 
-                // windex == 0x401e|| SECONDARY_VMEXEC_CONTROL
-                // windex == 0x400c|| VMEXIT_CONTROLS
-                // windex == 0x4012|| VMENTRY_CONTROLS
-                // windex == 0x400e || 
+                // || windex == 0x4000//PIN_BASED_EXEC_CONTROLS
+                // || windex == 0x4002//PROCESSOR_BASED_VMEXEC_CONTROLS
+                // || windex == 0x400a
+                // || windex == 0x401e//SECONDARY_VMEXEC_CONTROL
+                // || windex == 0x400c//VMEXIT_CONTROLS
+                // || windex == 0x4012//VMENTRY_CONTROLS
+                // || windex == 0x400e 
                 || windex == 0x4010 // vmexit msr load count
                 || windex == 0x4014 // vmentry msr load count
                 || windex == 0x4016 //VMENTRY_INTERRUPTION_INFO
@@ -513,6 +515,7 @@ void host_entry(uint64_t arg)
                         // wvalue |= ((0x2) <<8);
                     }
                     vmwrite(windex, wvalue);
+                    // wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, wvalue);
                     vmwrite(0x482e,0xffffffff);
                 }
     
@@ -521,6 +524,40 @@ void host_entry(uint64_t arg)
     // wprintf(L"**********\n\r");
     // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
     // wprintf(L"vmwrite(0x4018, 0x%x);\n", vmread(0x4018));
+    // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
+    // wvalue = 1<<1 //0b111 0110 1010 0000 1111 0001 1111 0110
+    //        | 1<<2
+    //     //    | 1<<3
+    //        | 1<<4
+    //        | 1<<5
+    //        | 1<<6
+    //        | 1<<7
+    //        | 1<<8
+    //     //    | 1<<9
+    //     //    | 1<<10
+    //     //    | 1<<11
+    //        | 1<<12
+    //        | 1<<13
+    //        | 1<<14
+    //        | 1<<15
+    //     //    | 1<<16
+    //     //    | 1<<17
+    //     //    | 1<<18
+    //     //    | 1<<19
+    //     //    | 1<<20
+    //        | 1<<21
+    //     //    | 1<<22
+    //        | 1<<23
+    //     //    | 1<<24
+    //        | 1<<25
+    //        | 1<<26
+    //     //    | 1<<27
+    //        | 1<<28
+    //        | 1<<29
+    //        | 1<<30;
+    // wvalue = 0;
+    // vmwrite(0x4002,wvalue);
+               
     vmwrite(0x4800,get_seg_limit(vmread(0x800)));
     vmwrite(0x4802,get_seg_limit(vmread(0x802)));
     vmwrite(0x4804,get_seg_limit(vmread(0x804)));
@@ -560,6 +597,7 @@ void host_entry(uint64_t arg)
         }
     }
 
+    // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
 
     // wprintf(L"**********\n\r");
     // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
@@ -712,7 +750,7 @@ _Noreturn
 void guest_entry(void)
 {
     // while(1){
-    //     vmcall(1);
+        // vmcall(1);
     //     // input_buf[4001] = 1;
     // }
     while(1){
@@ -762,7 +800,7 @@ void guest_entry(void)
         // asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax"); //
 
         // // wprintf(L"mov to cr4\r\n");
-        asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
 
         // // wprintf(L"mov to cr8\r\n");
         // asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax"); //

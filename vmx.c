@@ -389,14 +389,14 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   }
 
   if (~vm->vmexec_ctrls2 & VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_LO) {
-   //   wprintf(L"VMFAIL: VMCS EXEC CTRL: VMX proc-based controls allowed 0-settings\n");
+    //  wprintf(L"VMFAIL: VMCS EXEC CTRL: VMX proc-based controls allowed 0-settings\n");
    //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
    // allowed 0 setting
      vm->vmexec_ctrls2 |= VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_LO;
      vmwrite(VMCS_32BIT_CONTROL_PROCESSOR_BASED_VMEXEC_CONTROLS, vm->vmexec_ctrls2);
   }
   if (vm->vmexec_ctrls2 & ~VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_HI) {
-   //   wprintf(L"VMFAIL: VMCS EXEC CTRL: VMX proc-based controls allowed 1-settings [0x%08x]\n", vm->vmexec_ctrls2 & ~VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_HI);
+    //  wprintf(L"VMFAIL: VMCS EXEC CTRL: VMX proc-based controls allowed 1-settings [0x%08x]\n", vm->vmexec_ctrls2 & ~VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_HI);
    //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      vm->vmexec_ctrls2 &= VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_HI;
      vmwrite(VMCS_32BIT_CONTROL_PROCESSOR_BASED_VMEXEC_CONTROLS, vm->vmexec_ctrls2);
@@ -468,7 +468,6 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   // VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS not implemented
   if (vm->vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS) {
-    //  wprintf("");
     vm->vmexec_ctrls1 &= ~(VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS);
     vmwrite(VMCS_32BIT_CONTROL_PIN_BASED_EXEC_CONTROLS,vm->vmexec_ctrls1);
 
