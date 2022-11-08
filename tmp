@@ -1,1 +1,0 @@
-x86_64-w64-mingw32-gcc -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror -fno-stack-check -fno-stack-protector -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields -Wl,--subsystem,10 -e EfiMain -I ./uefi-headers/Include -I ./uefi-headers/Include/X64 -I ./MdeModulePkg -I ./uefi-headers/Library/UefiBootServicesTableLib main.c vmx.c -o main.efi

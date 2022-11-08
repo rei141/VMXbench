@@ -1,14 +1,15 @@
+.gitignore
 *
 !*/
 !*.*
-/record
-MdeModulePkg/*
-/record/
-out/*
-/input
-/image
-/*.efi
 
+MdeModulePkg/
+record/
+out/
+input/
+image/
+*.efi
+!Makefile
 OVMF.fd
-/afl_input
-/*.txt
+afl_input
+*.txt
