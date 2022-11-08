@@ -21,8 +21,6 @@ int main(int argc, char** argv) {
     uint8_t *afl_area_ptr = NULL;
     int afl_shm_id;
     if (afl_shm_id_str != NULL) {
-        FILE * f = fopen("hoge","w");
-        fclose(f);
         afl_shm_id = atoi(afl_shm_id_str);
         afl_area_ptr = shmat(afl_shm_id, NULL, 0);
     }

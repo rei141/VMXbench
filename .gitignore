@@ -1,6 +1,12 @@
-*.efi
-out*
 *
-!*.c
-!*.h
-!*.sh
+!*/
+!*.*
+/record
+/out
+/input
+/image
+/*.efi
+
+/OVMF.fd
+/afl_input
+/*.txt
