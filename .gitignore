@@ -2,7 +2,8 @@
 !*/
 !*.*
 /record
-/record/*
+/MdeModulePkg
+/record/
 /out
 /input
 /image
