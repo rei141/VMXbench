@@ -367,7 +367,7 @@ void host_entry(uint64_t arg)
 
             // for (int i = 0; i < 4092/sizeof(uint16_t); i += 4) {
             for (int i = 0*4; i <152*4; i += 4) {
-            // for (int i = 50*4; i <152*4; i += 4) {
+            // for (int i = 0*4; i <6*4; i += 4) {
                 if(i/4 == 152) {
                     break;
                 }
@@ -412,6 +412,7 @@ void host_entry(uint64_t arg)
                 || windex == 0x4826 // guest activity state
                 || windex == 0x4824 // guest interuptibility state
 
+                // LIMIT
                 || windex == 0x4800
                 || windex == 0x4802
                 || windex == 0x4806
@@ -564,6 +565,10 @@ void host_entry(uint64_t arg)
     vmwrite(0x4806,get_seg_limit(vmread(0x806)));
     vmwrite(0x4808,get_seg_limit(vmread(0x808)));
     vmwrite(0x480a,get_seg_limit(vmread(0x80a)));
+    // wprintf(L"vmwrite(0x4802, 0x%x);\n", vmread(0x4802));
+    // wprintf(L"vmwrite(0x4804, 0x%x);\n", vmread(0x4804));
+    // wprintf(L"vmwrite(0x4816, 0x%x);\n", vmread(0x4816));
+    // wprintf(L"vmwrite(0x4818, 0x%x);\n", vmread(0x4818));
     // vmwrite(0x480c,get_seg_limit(vmread(0x80c)));
     // vmwrite(0x480e,get_seg_limit(vmread(0x80e)));
     // vmwrite(0x4814,0x809b);
@@ -571,7 +576,11 @@ void host_entry(uint64_t arg)
     // vmwrite(0x80e,wvalue);
     // vmwrite(0x80c,wvalue);
     // vmwrite(0x810,wvalue);
-
+// vmwrite(0x4000,0x16); //pin based ctrl
+// vmwrite(0x4002,0xf7006172); //cpu based ctrl
+// vmwrite(0x400c,0x36ffb); //vmexit ctrl
+// vmwrite(0x4012,0x13fb); //vmentry ctrl
+// vmwrite(0x401e,0x0); //secondary ctrl
     enum VMX_error_code is_vmentry_error = VMenterLoadCheckVmControls();
     if (! is_vmentry_error){
         wprintf(L"VMX CONTROLS OK!\r\n");
@@ -598,21 +607,24 @@ void host_entry(uint64_t arg)
     }
 
     // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
-
-    // wprintf(L"**********\n\r");
     // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
     // // vmwrite(0x4826,0x3);
     // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
+
+    // wprintf(L"**********\n\r");
     // wprintf(L"CS ar = 0x%x\n", vmread(0x4816));
     // wprintf(L"SS ar = 0x%x\n", vmread(0x4818));
     // wprintf(L"CS selector = 0x%x\n", (vmread(0x802)));
     // wprintf(L"SS selector = 0x%x\n", (vmread(0x804)));
-    // wprintf(L"SS TYPE = %d\n", (vmread(0x4818))&0xf);
     // wprintf(L"CS TYPE = %d\n", (vmread(0x4816))&0xf);
-    // wprintf(L"SS DPL = %d\n", (vmread(0x4818)>>5)&0x3);
-    // wprintf(L"SS RPL = %d\n", (vmread(0x804))&0x3);
+    // wprintf(L"SS TYPE = %d\n", (vmread(0x4818))&0xf);
     // wprintf(L"CS DPL = %d\n", (vmread(0x4816)>>5)&0x3);
     // wprintf(L"CS RPL = %d\n", (vmread(0x802))&0x3);
+    // wprintf(L"SS DPL = %d\n", (vmread(0x4818)>>5)&0x3);
+    // wprintf(L"SS RPL = %d\n", (vmread(0x804))&0x3);
+
+    // wprintf(L"vmwrite(0x4802, 0x%x);\n", vmread(0x4802));
+    // wprintf(L"vmwrite(0x4804, 0x%x);\n", vmread(0x4804));
     // wprintf(L"**********\n\r");
     // wprintf(L"======================\n\r");
 

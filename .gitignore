@@ -8,8 +8,8 @@ record/
 out/
 input/
 image/
-*.efi
 !Makefile
 OVMF.fd
 afl_input
+*.efi
 *.txt

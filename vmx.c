@@ -1572,11 +1572,11 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
         continue;
 #define BX_SELECTOR_RPL_MASK (0xfffc)
 #if BX_SUPPORT_X86_64
-     if (n == BX_SEG_REG_SS && (selector & BX_SELECTOR_RPL_MASK) == 0) {
-        // SS is allowed to be NULL selector if going to 64-bit guest
-        if (x86_64_guest && guest.sregs[BX_SEG_REG_CS].cache.u.segment.l)
-           continue;
-     }
+    //  if (n == BX_SEG_REG_SS && (selector & BX_SELECTOR_RPL_MASK) == 0) {
+    //     // SS is allowed to be NULL selector if going to 64-bit guest
+    //     if (x86_64_guest && guest.sregs[BX_SEG_REG_CS].cache.u.segment.l)
+    //        continue;
+    //  }
 
      if (n < BX_SEG_REG_FS) {
         if (GET32H(base) != 0) {
@@ -1603,7 +1603,8 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      }
 
      if (! IsLimitAccessRightsConsistent(limit, ar)) {
-        // wprintf(L"VMENTER FAIL: VMCS guest %s.AR/LIMIT malformed\n", segname[n]);
+        wprintf(L"VMENTER FAIL: VMCS guest %s.AR/LIMIT malformed\n", segname[n]);
+  
         ar &= ~(0xfffe0f00); 
         if ((ar >> 15) & 1){
            if ((limit & 0xfff) != 0xfff) {
