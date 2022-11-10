@@ -51,7 +51,7 @@
 #include "vmx.h"
 #include "uefi.h"
 extern EFI_SYSTEM_TABLE  *SystemTable;
-extern uint64_t current_vmcsptr;
+
 extern uint64_t vmxonptr;
 // #include <Library/ShellLib.h>
 // #include <Library/UefiShellDebug1CommandsLib/Pci.h>
@@ -558,7 +558,31 @@ void host_entry(uint64_t arg)
     //        | 1<<30;
     // wvalue = 0;
     // vmwrite(0x4002,wvalue);
-               
+    // uint32_t ecx = 0; // 10
+    // uint32_t edx = 0;
+    // uint32_t eax = 0;
+    // asm volatile("cpuid" : "=c" (ecx), "=d" (edx): "a" (1) : "ebx");
+    // wprintf(L"cpuid(eax = 1), ecx = 0x%x, edx = 0x%x\n", ecx, edx);
+    // asm volatile("cpuid" : "=a" (eax) : "a" (0x80000008));
+    // wprintf(L"cpuid(eax = 0x8000_0008), eax = 0x%x\n", eax);
+    // wprintf(L"rdmsr(0x480) = 0x%x // VMX_MSR_VMX_BASIC\n", rdmsr(0x480));
+    // wprintf(L"rdmsr(0x481) = 0x%x // VMX_MSR_VMX_PINBASED_CTRLS\n", rdmsr(0x481));
+    // wprintf(L"rdmsr(0x48d) = 0x%x // VMX_MSR_VMX_TRUE_PINBASED_CTRLS\n", rdmsr(0x48d));
+    // wprintf(L"rdmsr(0x482) = 0x%x // VMX_MSR_VMX_PROCBASED_CTRLS\n", rdmsr(0x482));
+    // wprintf(L"rdmsr(0x48e) = 0x%x // VMX_MSR_VMX_TRUE_PROCBASED_CTRLS\n", rdmsr(0x48e));
+    // wprintf(L"rdmsr(0x483) = 0x%x // VMX_MSR_VMX_VMEXIT_CTRLS\n", rdmsr(0x483));
+    // wprintf(L"rdmsr(0x48f) = 0x%x // VMX_MSR_VMX_TRUE_VMEXIT_CTRLS\n", rdmsr(0x48f));
+    // wprintf(L"rdmsr(0x484) = 0x%x // VMX_MSR_VMX_VMENTRY_CTRLS\n", rdmsr(0x484));
+    // wprintf(L"rdmsr(0x490) = 0x%x // VMX_MSR_VMX_TRUE_VMENTRY_CTRLS\n", rdmsr(0x490));
+    // wprintf(L"rdmsr(0x485) = 0x%x // VMX_MSR_MISC\n", rdmsr(0x485));
+    // wprintf(L"rdmsr(0x486) = 0x%x // VMX_MSR_CR0_FIXED0\n", rdmsr(0x486));
+    // wprintf(L"rdmsr(0x487) = 0x%x // VMX_MSR_CR0_FIXED1\n", rdmsr(0x487));
+    // wprintf(L"rdmsr(0x488) = 0x%x // VMX_MSR_CR4_FIXED0\n", rdmsr(0x488));
+    // wprintf(L"rdmsr(0x489) = 0x%x // VMX_MSR_CR4_FIXED1\n", rdmsr(0x489));
+    // wprintf(L"rdmsr(0x48b) = 0x%x // VMX_MSR_VMX_PROCBASED_CTRLS2\n", rdmsr(0x48b));
+    // wprintf(L"rdmsr(0xc0000080) = 0x%x // MSR_EFER\n", rdmsr(0xc0000080));
+    // wprintf(L"rdmsr(0x48c) = 0x%x // VMX_MSR_VMX_EPT_VPID_CAP\n", rdmsr(0x48c));
+
     vmwrite(0x4800,get_seg_limit(vmread(0x800)));
     vmwrite(0x4802,get_seg_limit(vmread(0x802)));
     vmwrite(0x4804,get_seg_limit(vmread(0x804)));
@@ -1044,7 +1068,6 @@ EfiMain (
     wprintf(L"Initialize VMCS\r\n");
     __builtin_memset(vmcs, 0, 4096);
     ptr = (uint32_t *)vmcs;
-    current_vmcsptr = (uintptr_t)ptr;
     ptr[0] = revision_id;
     asm volatile ("vmclear %1" : "=@ccbe" (error) : "m" (ptr));
     if (error)
@@ -1423,6 +1446,8 @@ EfiMain (
     vmwrite(0x4824, 0x8);
     vmwrite(0x401c, 0xf);
     virtual_apic[0x80] = 0xff;
+    wprintf(L"rdmsr(0x480) = 0x%x // VMX_MSR_VMX_BASIC\n", rdmsr(0x480));
+    wprintf(L"rdmsr(0x481) = 0x%x // VMX_MSR_VMX_PINBASED_CTRLS\n", rdmsr(0x481));
     // vmwrite(0x400e, 512);
     // vmwrite(0x400e, 0xe43d0428);
     // vmwrite(0x400e, 0xff);

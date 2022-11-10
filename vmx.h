@@ -104,8 +104,8 @@ static inline void vmptrld(uint64_t *arg)
 static inline void vmptrst(uint64_t *arg)
 {
     asm volatile ("vmptrst %0"
-		  : "=m" (arg)
-          :
+		  :
+          : "m" (*arg)
           : "cc");
 }
 static inline void invept(uint64_t type, const invept_t *i)
@@ -1184,10 +1184,10 @@ typedef struct bx_VMCS
 
 } VMCS_CACHE;
 
-#define PIN_VMEXIT(ctrl) (vm->vmexec_ctrls1 & (ctrl))
-#define     VMEXIT(ctrl) (vm->vmexec_ctrls2 & (ctrl))
+#define PIN_VMEXIT(ctrl) (vm.vmexec_ctrls1 & (ctrl))
+#define     VMEXIT(ctrl) (vm.vmexec_ctrls2 & (ctrl))
 
-#define SECONDARY_VMEXEC_CONTROL(ctrl) (vm->vmexec_ctrls3 & (ctrl))
+#define SECONDARY_VMEXEC_CONTROL(ctrl) (vm.vmexec_ctrls3 & (ctrl))
 
 
 
@@ -1414,6 +1414,6 @@ bool isValidMSR_PAT(uint64_t pat_val);
 bool is_invalid_cet_control(bx_address val);
 bool CheckPDPTR(uint64_t *pdptr);
 bool CheckPDPTR_CR3(bx_phy_address cr3_val);
-uint32_t VMX_Read_Virtual_APIC_VTPR();
+uint32_t VMX_Read_Virtual_APIC_VTPR(void);
 uint32_t VMXReadRevisionID(bx_phy_address pAddr);
 void VMXWriteRevisionID(bx_phy_address pAddr, uint32_t value);
