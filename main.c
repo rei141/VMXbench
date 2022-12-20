@@ -229,6 +229,11 @@ void host_entry(uint64_t arg)
         wprintf(L"vmwrite(0x400c,0x%x); //vmexit ctrl\r\n",vmread(0x400c));
         wprintf(L"vmwrite(0x4012,0x%x); //vmentry ctrl\r\n",vmread(0x4012));
         wprintf(L"vmwrite(0x401e,0x%x); //secondary ctrl\r\n",vmread(0x401e));
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
         print_exitreason(reason);
         __builtin_longjmp(env, 1);
         vmwrite(0x681E, (uint64_t)guest_entry);
@@ -241,6 +246,12 @@ void host_entry(uint64_t arg)
         wprintf(L"exit reason = 0, rip = 0x%x, len = %d\n", rip,len);
         wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
         vmwrite(0x681E, (uint64_t)guest_entry);
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
+
         wprintf(L"vmwrite(0x4016, 0x%x); //VMENTRY_INTERRUPTION_INFO\n", vmread(0x4016));
         wprintf(L"vmwrite(0x4018, 0x%x); //VMENTRY_EXCEPTION_ERR_CODE\n", vmread(0x4018));
         wprintf(L"vmwrite(0x401a, 0x%x); /VMENTRY_INSTRUCTION_LENGTH\n", vmread(0x401a));
@@ -257,9 +268,15 @@ void host_entry(uint64_t arg)
         uint64_t rip = vmread(0x681E); // Guest RIP
         uint64_t len = vmread(0x440C); // VM-exit instruction length
         vmwrite(0x681E, rip + len);
+        wprintf(L"vmwrite(0x401a, 0x%x); /VMENTRY_INSTRUCTION_LENGTH\n", vmread(0x401a));
+        wprintf(L"vmwrite(0x4000,0x%x); //pin based ctrl\r\n",vmread(0x4000));
+        wprintf(L"vmwrite(0x4002,0x%x); //cpu based ctrl\r\n",vmread(0x4002));
+        wprintf(L"vmwrite(0x400c,0x%x); //vmexit ctrl\r\n",vmread(0x400c));
+        wprintf(L"vmwrite(0x4012,0x%x); //vmentry ctrl\r\n",vmread(0x4012));
+        wprintf(L"vmwrite(0x401e,0x%x); //secondary ctrl\r\n",vmread(0x401e));
         wprintf(L"exit reason = 1, rip = 0x%x, len = %d\n", rip,len);
-        asm volatile("vmresume\n\t");
         wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
+        asm volatile("vmresume\n\t");
         __builtin_longjmp(env, 1);
         // vmwrite(0x681E, (uint64_t)guest_entry);
         wprintf(L"exit reason = 1, rip = 0x%x, len = %d\n", rip,len);
@@ -271,6 +288,11 @@ void host_entry(uint64_t arg)
         uint64_t len = vmread(0x440C); // VM-exit instruction length
         wprintf(L"exit reason = 2, rip = 0x%x, len = %d\n", rip,len);
         wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
         vmwrite(0x681E, (uint64_t)guest_entry);
         __builtin_longjmp(env, 1);
         asm volatile("vmresume\n\t");
@@ -281,6 +303,15 @@ void host_entry(uint64_t arg)
     }    
     if (reason == 46){
         // vmwrite(0x482e,0xffffffff);
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        asm volatile("vmresume\n\t");
+    }
+    if (reason == 58){
+        // vmwrite(0x482e,0xffffffff);
+        uint64_t rip = vmread(0x681E); // Guest RIP
+        uint64_t len = vmread(0x440C); // VM-exit instruction length
+        wprintf(L"exit reason = 2, rip = 0x%x, len = %d\n", rip,len);
+        print_exitreason(reason);
         vmwrite(0x681E, (uint64_t)guest_entry);
         asm volatile("vmresume\n\t");
     }
@@ -296,6 +327,32 @@ void host_entry(uint64_t arg)
         vmwrite(0x681E, rip+len);
         asm volatile("vmresume\n\t");
         __builtin_longjmp(env, 1);
+    }
+    if(reason == 8){
+        wprintf(L"VM exit reason %d\n",reason);        
+        wprintf(L"vmwrite(0x6820,0x%0x); // rflags\n",vmread(0x6820));
+        wprintf(L"vmwrite(0x4016, 0x%x); //VMENTRY_INTERRUPTION_INFO\n", vmread(0x4016));
+        wprintf(L"vmwrite(0x4018, 0x%x); //VMENTRY_EXCEPTION_ERR_CODE\n", vmread(0x4018));
+        wprintf(L"vmwrite(0x4824, 0x%x); //GUEST_INTERRUPTIBILITY_STATE\n", vmread(0x4824));  
+        wprintf(L"vmwrite(0x4826, 0x%x); //GUEST_ACTIVITY_STATE\n", vmread(0x4826));  
+        wprintf(L"VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, 0x%x); //GUEST_ACTIVITY_STATE\n", vmread(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO));  
+        wprintf(L"vmwrite(0x401a, 0x%x); //VMENTRY_INSTRUCTION_LENGTH\n", vmread(0x401a));
+        wprintf(L"vmwrite(0x4000,0x%x); //pin based ctrl\r\n",vmread(0x4000));
+        wprintf(L"vmwrite(0x4002,0x%x); //cpu based ctrl\r\n",vmread(0x4002));
+        wprintf(L"vmwrite(0x400c,0x%x); //vmexit ctrl\r\n",vmread(0x400c));
+        wprintf(L"vmwrite(0x4012,0x%x); //vmentry ctrl\r\n",vmread(0x4012));
+        wprintf(L"vmwrite(0x401e,0x%x); //secondary ctrl\r\n",vmread(0x401e));
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
+        // for (int i = 0; i < 152;i++){
+        //     wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
+        // }
+
+        // asm volatile("vmresume\n\t");
+        // __builtin_longjmp(env, 1);
     }
     if(reason != 18){
         wprintf(L"VM exit reason %d\n",reason);        
@@ -316,6 +373,7 @@ void host_entry(uint64_t arg)
         __builtin_longjmp(env, 1);
     }
     if (reason == 18) {
+fuzz:
         // if (count == 0){
         //     input_buf[4001] = 0;
         // }
@@ -339,6 +397,7 @@ void host_entry(uint64_t arg)
         while(1){
             count++;
             wprintf(L"%d\r\n",count);
+            // vmcall_with_vmcall_number(13);
             input_buf[4001] = 1; 
             // flag = input_buf[4000];
             while(1){
@@ -367,6 +426,8 @@ void host_entry(uint64_t arg)
 
             // for (int i = 0; i < 4092/sizeof(uint16_t); i += 4) {
             for (int i = 0*4; i <152*4; i += 4) {
+            // for (int i = 4*72; i <4*73; i += 4) {
+            // for (int i = 4*60; i <4*71; i += 4) {
             // for (int i = 0*4; i <6*4; i += 4) {
                 if(i/4 == 152) {
                     break;
@@ -409,8 +470,8 @@ void host_entry(uint64_t arg)
                 || windex == 0x4010 // vmexit msr load count
                 || windex == 0x4014 // vmentry msr load count
                 || windex == 0x4016 //VMENTRY_INTERRUPTION_INFO
-                || windex == 0x4826 // guest activity state
-                || windex == 0x4824 // guest interuptibility state
+                // || windex == 0x4826 // guest activity state
+                // || windex == 0x4824 // guest interuptibility state
 
                 // LIMIT
                 || windex == 0x4800
@@ -511,13 +572,14 @@ void host_entry(uint64_t arg)
                         wvalue = 0;
                     }
                     if(windex == 0x4824) {
+                        wvalue &= ~(1<<4);
                         // wvalue |= 1<<31 ;
                         // wvalue &= ~((0x7) <<8);
                         // wvalue |= ((0x2) <<8);
                     }
                     vmwrite(windex, wvalue);
                     // wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, wvalue);
-                    vmwrite(0x482e,0xffffffff);
+                    // vmwrite(0x482e,0xffffffff);
                 }
     
             // input_buf[4001] = 1;
@@ -589,6 +651,8 @@ void host_entry(uint64_t arg)
     vmwrite(0x4806,get_seg_limit(vmread(0x806)));
     vmwrite(0x4808,get_seg_limit(vmread(0x808)));
     vmwrite(0x480a,get_seg_limit(vmread(0x80a)));
+// vmwrite(0x401e,0x4a21); //secondary ctrl
+// vmwrite(0x401e,0xffffffff); //secondary ctrl
     // wprintf(L"vmwrite(0x4802, 0x%x);\n", vmread(0x4802));
     // wprintf(L"vmwrite(0x4804, 0x%x);\n", vmread(0x4804));
     // wprintf(L"vmwrite(0x4816, 0x%x);\n", vmread(0x4816));
@@ -605,6 +669,43 @@ void host_entry(uint64_t arg)
 // vmwrite(0x400c,0x36ffb); //vmexit ctrl
 // vmwrite(0x4012,0x13fb); //vmentry ctrl
 // vmwrite(0x401e,0x0); //secondary ctrl
+// vmwrite(0x401e,0x211797c);
+// uint32_t ctrl3 = 0b10000100010111100101111100;
+uint32_t ctrl3 = 0b11111011100000000100101100100;
+// ctrl3 = 0b10000100010111100100000000;
+// ctrl3 = 0b00010000100010110100101111000;// bug? 12, 2 = 0
+// ctrl3 = 0b11111011100000000100101100100;
+// ctrl3 = 0b10000100010110100111111000;// bug? 12, 2 = 0
+// ctrl3 = 0b10000100010110100111111000;// bug? 12, 2 = 0
+// ctrl3 = 0b10000100010111100100000000;
+// ctrl3 = 0 | 
+//         0 << 1|
+//         1 << 2|
+//         1 << 3|
+//         1 << 4|
+//         1 << 5|
+//         1 << 6|
+//         1 << 7|
+//         1 << 8|
+//         0 << 9|
+//         0 << 10|
+//         1 << 11|
+//         1 << 12|
+//         1 << 13|
+//         1 << 14|
+//         0 << 15|
+//         1 << 16|
+//         0 << 17|
+//         0 << 18|
+//         0 << 19|
+//         1 << 20|
+//         0 << 21|
+//         0 << 22|
+//         0 << 23|
+//         0 << 24|
+//         1 << 25;
+// ctrl3 = 0;
+vmwrite(0x401e,ctrl3);
     enum VMX_error_code is_vmentry_error = VMenterLoadCheckVmControls();
     if (! is_vmentry_error){
         wprintf(L"VMX CONTROLS OK!\r\n");
@@ -625,11 +726,11 @@ void host_entry(uint64_t arg)
         wprintf(L"GUEST STATE ERROR %0d\r\n", qualification);
         wprintf(L"GUEST STATE ERROR %0d\r\n", is_error);
     }
-            vmcall_with_vmcall_number(13);
             break;
         }
     }
 
+    wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
     // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
     // wprintf(L"guest activity state 0x%d\n",vmread(0x00004826));
     // // vmwrite(0x4826,0x3);
@@ -787,22 +888,13 @@ void guest_entry(void)
 {
     // while(1){
         // vmcall(1);
-    //     // input_buf[4001] = 1;
+        // input_buf[4001] = 1;
     // }
     while(1){
         // SystemTable->BootServices->Stall(10);
         vmcall(1);
         // input_buf[4001] = 1;
-        // asm volatile ("getsec":::); // 11 vmexit
-        // asm volatile ("hlt"); //12
-        // asm volatile ("invlpg %0" : :"m"(zero)); // 14 vmexit
-        // asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit
-        // asm volatile ("rsm":::); //17
-        // asm volatile ("rdtscp"); // 51 vmexit
-        // __invpcid(0, 0, 0); // 58 vmexit
-        // asm volatile ("xsetbv":::); //55
-        // asm volatile ("encls":::); // 60 vmexit
-        // asm volatile ("pconfig"); // 65 vmexit
+        // uint64_t zero = 0;
         // void register_state=0;
         asm volatile ("invd":::); //13
         asm volatile ("rdtsc"); // 16
@@ -814,90 +906,129 @@ void guest_entry(void)
         uint64_t zero = 0;
         asm volatile ("rdrand %0" : "+c" (zero) : : "%rax"); // 57
         asm volatile ("rdseed %0" : "+c" (zero) : : "%rax"); // 61
+        uint32_t ecx;
 
-        uint32_t ecx; // 10
-        for (int i = 0; i < 4; i++)
-            asm volatile ("cpuid" : "=c" (ecx) : "a" (i) : "ebx", "edx");
-        for (int i = 0; i < 9; i++)
-            asm volatile ("cpuid" : "=c" (ecx) : "a" (i|1<<31) : "ebx", "edx");
+        asm volatile ("cpuid" : "=c" (ecx) : "a" (1) : "ebx", "edx");
 
-        // l++;
-        uint64_t tmp = rdmsr(0xdeadbeaf);
-        wrmsr(0xdead,0xdeadbeef);
-        tmp++;
-        for(int dev=0; dev < 32; dev++){
-            IoIn32(0x0cf8);
-            IoOut32(0x0cf8,0);
-            // wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\n\r",0,dev,0, vendor_id);
-        }
+        uint16_t a = input_buf[613]%21;
 
-        // asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax"); //
-        // // wprintf(L"mov to cr3\r\n");
-        // asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax"); //
-
-        // // wprintf(L"mov to cr4\r\n");
-        // asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
-
-        // // wprintf(L"mov to cr8\r\n");
-        // asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax"); //
-
-        // // // wprintf(L"clts\r\n");
-        asm volatile ("clts");
-
-        // // // wprintf(L"mov from cr3\r\n");
-
-        uint64_t dummy;
-        asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%cr0, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%cr4, %0" : "=c" (dummy) : : "%rbx");
-
-        // // // wprintf(L"mov from cr8\r\n");
-        // asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
-        // 29
-        // asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
-        // asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
-        // asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
-        // wprintf(L"lmsw\r\n");
-        // uint16_t zero16 = 0;
-        // asm volatile ("lmsw %0" : "+c" (zero16) : : "%rdi");
-        // for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
-        for (int i = 0; i < 100/sizeof(uint16_t); i += 6) {
-        int tmp;
         uint32_t index;
         uint64_t value;
-            if(input_buf[i]%2 == 0){
-                index = (uint64_t)input_buf[i];
-            }else{
-                index = (uint64_t)0xc000<<16 | (uint64_t)input_buf[i];
+        int tmp;
+        if (a == 1){
+        // for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+        // for (int i = 0; i < 4092/sizeof(uint16_t); i += 6) {
+            if(input_buf[614]%2 == 0){
+                index = (uint64_t)input_buf[615];
+            // }else{
+                index = (uint64_t)0xc000<<16 | (uint64_t)input_buf[615];
             }
-            value = (uint64_t)input_buf[i+5]<<48 |(uint64_t)input_buf[i+4]<<32 |(uint64_t)input_buf[i+3]<<16 | (uint64_t)input_buf[i+2];
+            value = (uint64_t)input_buf[619]<<48 |(uint64_t)input_buf[618]<<32 |(uint64_t)input_buf[617]<<16 | (uint64_t)input_buf[616];
             // index = 0xc0000102;
             tmp = rdmsr(index);
             tmp++;
             wrmsr(index,value);
             // uint32_t ecx;
             // asm volatile ("cpuid" : "=c" (ecx) : "a" (index) : "ebx", "edx");
-            // asm volatile ("mov %0, %%dx" ::"r" (input_buf[i]));
-            // asm volatile ("mov %0, %%eax" ::"r" ((uint32_t)input_buf[i+1]));
-            // asm volatile ("out %eax, %dx");
-            // asm volatile("mov %0, %%dx" ::"r"(input_buf[i]));
-            // asm volatile("in %dx, %eax");
-
         }
-        // asm volatile ("invlpg %0" : :"m"(zero));
+        // }
+        if(a==0){
+            asm volatile ("mov %0, %%dx" ::"r" (input_buf[620]));
+            asm volatile ("mov %0, %%eax" ::"r" ((uint32_t)input_buf[621]));
+            asm volatile ("out %eax, %dx");
+            asm volatile("mov %0, %%dx" ::"r"(input_buf[622]));
+            asm volatile("in %dx, %eax");
+        }
+        // **********************************
+        if(a==2)
+        asm volatile ("getsec":::); // 11 vmexit
+        if(a==3)
+        asm volatile ("hlt"); //12
+        if(a==4)
+        asm volatile ("invlpg %0" : :"m"(zero)); // 14 vmexit
+        if(a==5)
+        asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit
+        if(a==6)
+        asm volatile ("rsm":::); //17
+        if(a==7)
+        asm volatile ("rdtscp"); // 51 vmexit
+        if(a==8)
+        __invpcid(0, 0, 0); // 58 vmexit
+        // ;
+        if(a==9)
+        asm volatile ("xsetbv":::); //55
+        if(a==10)
+        asm volatile ("encls":::); // 60 vmexit
+        if(a==11)
+        asm volatile ("pconfig"); // 65 vmexit
+        // **********************************
+        // l++;
+        // // uint64_t tmp = rdmsr(0xdeadbeaf);
+        // for(int dev=0; dev < 32; dev++){
+            // IoIn32(0x0cf8);
+            // IoOut32(0x0cf8,0);
+            // wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\n\r",0,dev,0, vendor_id);
+        // }
+        // asm volatile ("hlt");
+
+        
+        // // // for (int i = 0; i < 1000/sizeof(uint16_t); i += 6) {
+        // // zero = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+2] << 32 | (uint64_t)input_buf[i+1] << 16| (uint64_t)input_buf[i];
+        // // zero = (uint64_t)input_buf[3]<<48 | (uint64_t)input_buf[2] << 32 | (uint64_t)input_buf[1] << 16| (uint64_t)input_buf[0];
+        
+        uint64_t dummy;
+        if(a==13)
+        asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
+
+        // wprintf(L"mov to cr3\r\n");
+        // zero = 0x0;
+        if(a==14)
+        asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
+
+        // wprintf(L"mov to cr4\r\n");
+        // zero = 0x0;
+        if(a==15)
+        asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
+
+        // wprintf(L"mov to cr8\r\n");
+        // zero = 0x0;
+        // asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
+
+        // // wprintf(L"clts\r\n");
+        if(a==16)
+        asm volatile ("clts");
+
+        // // wprintf(L"mov from cr3\r\n");
+
+        if(a==17)
+        asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
+
+        // // wprintf(L"mov from cr8\r\n");
+        if(a==18)
+        asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
+
+        if(a==19)
+{
+        asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
+}
+        if(a==20)
+{
+        asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
+}
 
         // tmp++;
         // wprintf(L"%x\r\n",tmp);
@@ -1484,8 +1615,44 @@ EfiMain (
     //         wprintf(L"vmcs %d 0x%x\n",i,vp[i]);
     // }
     // //////////////////////
-    wprintf(L"---VMCS CHECK START---\r\n");
+// vmwrite(0x6820,0x6); // rflags
+// vmwrite(0x4016, 0x0); //VMENTRY_INTERRUPTION_INFO
+// vmwrite(0x4018, 0x541a2985); //VMENTRY_EXCEPTION_ERR_CODE
+// vmwrite(0x4824, 0x0); //GUEST_INTERRUPTIBILITY_STATE
+// // vmwrite(0x4826, 0x0); //GUEST_ACTIVITY_STATE
+// // vmwrite(0x401a, 0xbce80a06); //VMENTRY_INSTRUCTION_LENGTH
+// // vmwrite(0x4000,0x3f); //pin based ctrl
+// vmwrite(0x4002,0xe470edfe); //cpu based ctrl
+// // vmwrite(0x400c,0x236fff); //vmexit ctrl
+// // vmwrite(0x4012,0xb3fb); //vmentry ctrl
+// // vmwrite(0x401e,0x2105b7c); //secondary ctrl
 
+// vmwrite(0x6820,0x2); // rflags
+// vmwrite(0x4016, 0x0); //VMENTRY_INTERRUPTION_INFO
+// vmwrite(0x4018, 0x9d09c29b); //VMENTRY_EXCEPTION_ERR_CODE
+// vmwrite(0x4824, 0x0); //GUEST_INTERRUPTIBILITY_STATE
+// vmwrite(0x4826, 0x0); //GUEST_ACTIVITY_STATE
+// // VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, 0x0); //GUEST_ACTIVITY_STATE
+// // vmwrite(0x401a, 0xf8c4e806); //VMENTRY_INSTRUCTION_LENGTH
+// vmwrite(0x4000,0x3e); ///pin based ctrl
+// // vmwrite(0x4002,0xe470edfe); //cpu based ctrl
+// vmwrite(0x400c,0xb6fff); //vmexit ctrl
+// vmwrite(0x4012,0x13ff); //vmentry ctrl
+// vmwrite(0x401e,0x201502d); //secondary ctrl
+// wprintf(L"440c%x\n", vmread(0x440c));
+// vmwrite(0x401c, 0x2233f8c4);
+// vmwrite(0x401e, 0x4d804e21);
+// vmwrite(0x401e,0x4a21); //secondary ctrl
+// vmwrite(0x401e,0x0); //secondary ctrl
+// vmwrite(0x4020, 0x64d467ad);
+// vmwrite(0x4022, 0xde324cde);
+    wprintf(L"---VMCS CHECK START---\r\n");
+// vmwrite(0x4000, 0x1f);
+// vmwrite(0x4002, 0x55886f7e);
+// vmwrite(0x401e, 0x1f700964);
+// 0x4000: 0x1f
+// 0x4002: 0x55886f7e
+// 0x401e: 0x1f700964
     enum VMX_error_code is_vmentry_error = VMenterLoadCheckVmControls();
     if (! is_vmentry_error){
         wprintf(L"VMX CONTROLS OK!\r\n");
@@ -1506,6 +1673,7 @@ EfiMain (
         wprintf(L"GUEST STATE ERROR %0d\r\n", qualification);
         wprintf(L"GUEST STATE ERROR %0d\r\n", is_error);
     }
+    wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
     // wprintf(L"0x4002, 0x%x\n", vmread(0x4002));
     // for (int i = 0; i < 4096; i++){
     //     vmcs_backup[i] = vmcs[i];

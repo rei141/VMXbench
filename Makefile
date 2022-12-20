@@ -10,7 +10,7 @@ QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 
-QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm -cpu host,+x2apic,vmx=on -m 1024 \
+QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm -cpu host,+x2apic,vmx=on -m 512 \
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot

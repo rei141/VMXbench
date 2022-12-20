@@ -3,12 +3,15 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
-uint8_t cov[0xae000];
+
+#define MAX_KVM_INTEL 0xc0000
+#define MAX_KVM 0x187000
+uint8_t cov[MAX_KVM];
 int main (void){
     // FILE * f = 
     DIR *dir;
     struct dirent *dp;
-	char path[64] = "/home/ishii/nestedFuzz/VMXbench/record/";
+	char path[64] = "./";
 
 	dir=opendir(path);
 		FILE * result = fopen("result","w");
@@ -16,18 +19,18 @@ int main (void){
 		if(strcmp(dp->d_name, ".")==0 ||strcmp(dp->d_name, "..")==0 ){
 			continue;
 		}
-		printf("%s\n",dp->d_name);
-		sprintf(path,"/home/ishii/nestedFuzz/VMXbench/record/%s",dp->d_name);
+		// printf("%s\n",dp->d_name);
+		sprintf(path,"./%s",dp->d_name);
         FILE * f = fopen(path,"rb");
 		if (f==NULL){
 			printf("error");
 			exit(1);
 		}
-		memset(cov,0,0xae000);
-        int n = fread(cov, sizeof(uint8_t), 0xae000, f);
+		memset(cov,0,MAX_KVM);
+        int n = fread(cov, sizeof(uint8_t), MAX_KVM, f);
 		int c= 0 ;
 		// printf("hello\n");
-		for(int i = 0; i < 0xae000;i++){
+		for(int i = 0; i < MAX_KVM;i++){
 			c += cov[i];
 		}
 		fprintf(result,"%s %d\n", dp->d_name, c);
