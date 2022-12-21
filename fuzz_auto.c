@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
             break;
         }
         usleep(100);
-        if(cnt > 1000){
+        if(cnt > 10000){
             // kill((pid_t)p[0],SIGKILL);
             // int ret;
             // char *qemu_command = "sudo /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
             ivmshm[4000] = 0;
             ivmshm[4002] = 1; // kill qemu
             msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-            sleep(5);
+            sleep(6);
             break;
         }
     }
