@@ -581,10 +581,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      vm.eptptr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_EPTPTR);
      if (! is_eptptr_valid(vm.eptptr)) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: invalid EPTPTR value\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       vm.vmexec_ctrls3 &= ~VMX_VM_EXEC_CTRL3_EPT_ENABLE;
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
-  else {
+  if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_ENABLE)) {
      if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: unrestricted guest without EPT\n");
        vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
@@ -623,9 +625,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmfunc_ctrls & VMX_VMFUNC_EPTP_SWITCHING_MASK) {
      if ((vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_ENABLE) == 0) {
        wprintf(L"VMFAIL: VMFUNC EPTP-SWITCHING: EPT disabled\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       vm.vmfunc_ctrls &= ~VMX_VMFUNC_EPTP_SWITCHING_MASK;
+       vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS,vm.vmfunc_ctrls);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
-
+  }
+  if (vm.vmfunc_ctrls & VMX_VMFUNC_EPTP_SWITCHING_MASK) {
      vm.eptp_list_address = vmread(VMCS_64BIT_CONTROL_EPTP_LIST_ADDRESS);
      if (! IsValidPageAlignedPhyAddr(vm.eptp_list_address)) {
        wprintf(L"VMFAIL: VMFUNC EPTP-SWITCHING: eptp list phy addr malformed\n");
@@ -636,9 +641,13 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_PML_ENABLE) {
     if ((vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_ENABLE) == 0) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: PML is enabled without EPT\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       vm.vmexec_ctrls3 &= ~VMX_VM_EXEC_CTRL3_PML_ENABLE;
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
     }
+  }
 
+  if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_PML_ENABLE) {
     vm.pml_address = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_PML_ADDRESS);
     if (! IsValidPageAlignedPhyAddr(vm.pml_address)) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: PML base phy addr malformed\n");
@@ -650,9 +659,13 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_SUBPAGE_WR_PROTECT_CTRL) {
     if ((vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_ENABLE) == 0) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: SPP is enabled without EPT\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       vm.vmexec_ctrls3 &= ~VMX_VM_EXEC_CTRL3_SUBPAGE_WR_PROTECT_CTRL;
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
     }
+  }
 
+  if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_SUBPAGE_WR_PROTECT_CTRL) {
     vm.spptp = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_SPPTP);
     if (! IsValidPageAlignedPhyAddr(vm.spptp)) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: SPP base phy addr malformed\n");
@@ -670,7 +683,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_TSC_SCALING) {
      if ((vm.tsc_multiplier = vmread(VMCS_64BIT_CONTROL_TSC_MULTIPLIER)) == 0) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: TSC multiplier should be non zero\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: TSC multiplier should be non zero\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
@@ -1383,15 +1396,19 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 #if BX_SUPPORT_VMX >= 2
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
      if (~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))) {
-      //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+       vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+        wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+        // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 
      bool pe = (guest.cr0 & BX_CR0_PE_MASK) != 0;
      bool pg = (guest.cr0 & BX_CR0_PG_MASK) != 0;
      if (pg && !pe) {
         wprintf(L"VMENTER FAIL: VMCS unrestricted guest CR0.PG without CR0.PE\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+       vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+        // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
   }
   else
@@ -1412,11 +1429,11 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
       vmwrite(VMCS_GUEST_CR0, guest.cr0);
   }
 
-#if BX_SUPPORT_VMX >= 2
-  bool real_mode_guest = false;
-  if (! (guest.cr0 & BX_CR0_PE_MASK))
-     real_mode_guest = true;
-#endif
+// #if BX_SUPPORT_VMX >= 2
+//   bool real_mode_guest = false;
+//   if (! (guest.cr0 & BX_CR0_PE_MASK))
+//      real_mode_guest = true;
+// #endif
 
   guest.cr3 = vmread(VMCS_GUEST_CR3);
 #if BX_SUPPORT_X86_64
@@ -1657,7 +1674,27 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
              if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
                if (guest.sregs[BX_SEG_REG_CS].cache.dpl != 0) {
                  wprintf(L"VMENTER FAIL: VMCS unrestricted guest CS.DPL != 0\n");
-                 return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+                 if (!(vm.vmexec_ctrls3 &(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))){
+                   guest.sregs[BX_SEG_REG_CS].cache.type = BX_CODE_EXEC_ONLY_ACCESSED;
+                   ar &= 0xfffffff0;
+                   ar |= guest.sregs[BX_SEG_REG_CS].cache.type;
+                   vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+                   if (guest.sregs[BX_SEG_REG_CS].cache.dpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
+                    //  wprintf(L"VMENTER FAIL: VMCS guest non-conforming CS.DPL <> SS.DPL\n");
+                     // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+                     guest.sregs[BX_SEG_REG_CS].cache.dpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
+                     ar &= ~(1<<5|1<<6);
+                     ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl<<5;
+                     vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+                   }
+                 }
+                 else{
+                   guest.sregs[BX_SEG_REG_CS].cache.dpl = 0;
+                   ar &= ~(1<<5|1<<6);
+                   ar |= guest.sregs[BX_SEG_REG_CS].cache.dpl<<5;
+                   vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
+                 }
+                //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
                }
                break;
              }
@@ -1727,7 +1764,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
            if (guest.sregs[n].cache.type <= 11) {
               // data segment or non-conforming code segment
               if (guest.sregs[n].selector.rpl > guest.sregs[n].cache.dpl) {
-               //  wprintf(L"VMENTER FAIL: VMCS guest non-conforming %s.RPL < %s.DPL\n", segname[n], segname[n]);
+                wprintf(L"VMENTER FAIL: VMCS guest non-conforming %s.RPL < %s.DPL\n", segname[n], segname[n]);
                //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
                guest.sregs[n].selector.value &= guest.sregs[n].cache.dpl;
                guest.sregs[n].selector.rpl = guest.sregs[n].selector.value&0x3;
@@ -1739,10 +1776,10 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
 
   if (! v8086_guest) {
-     if (! (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) {
+    if (! (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) {
       // wprintf(L"===== SS CHECK =====\n");
         if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_SS].cache.dpl) {
-          //  wprintf(L"VMENTER FAIL: VMCS guest SS.RPL <> SS.DPL\n");
+           wprintf(L"VMENTER FAIL: VMCS guest SS.RPL <> SS.DPL\n");
          //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
            guest.sregs[BX_SEG_REG_SS].selector.rpl = guest.sregs[BX_SEG_REG_SS].cache.dpl;
            guest.sregs[BX_SEG_REG_SS].selector.value &= 0xfffc;
@@ -1750,7 +1787,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
            vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_SS, guest.sregs[BX_SEG_REG_SS].selector.value);
         }
         if (guest.sregs[BX_SEG_REG_SS].selector.rpl != guest.sregs[BX_SEG_REG_CS].selector.rpl) {
-          //  wprintf(L"VMENTER FAIL: VMCS guest CS.RPL != SS.RPL\n");
+           wprintf(L"VMENTER FAIL: VMCS guest CS.RPL != SS.RPL\n");
          //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
                guest.sregs[BX_SEG_REG_CS].selector.rpl = guest.sregs[BX_SEG_REG_SS].selector.rpl;
                guest.sregs[BX_SEG_REG_CS].selector.value &= 0xfffc;
@@ -1758,17 +1795,17 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
                vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR + 2*BX_SEG_REG_CS, guest.sregs[BX_SEG_REG_CS].selector.value);
         }
       // wprintf(L"===== SS CHECK =====\n");
-     }
-#if BX_SUPPORT_VMX >= 2
-     else { // unrestricted guest
-        if (real_mode_guest || guest.sregs[BX_SEG_REG_CS].cache.type == BX_DATA_READ_WRITE_ACCESSED) {
-           if (guest.sregs[BX_SEG_REG_SS].cache.dpl != 0) {
-             wprintf(L"VMENTER FAIL: VMCS unrestricted guest SS.DPL != 0\n");
-             return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-           }
-        }
-     }
-#endif
+    }
+// #if BX_SUPPORT_VMX >= 2
+//      else { // unrestricted guest
+//         if (real_mode_guest || guest.sregs[BX_SEG_REG_CS].cache.type == BX_DATA_READ_WRITE_ACCESSED) {
+//            if (guest.sregs[BX_SEG_REG_CS].cache.dpl != 0) {
+//              wprintf(L"VMENTER FAIL: VMCS unrestricted guest SS.DPL != 0\n");
+//              return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+//            }
+//         }
+//      }
+// #endif
   }
 
 /*

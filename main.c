@@ -265,11 +265,29 @@ void host_entry(uint64_t arg)
         // uint64_t rip = vmread(0x681E); // Guest RIP
         // uint64_t len = vmread(0x440C); // VM-exit instruction length
         // wprintf(L"exit reason = 0, rip = 0x%x, len = %d\n", rip,len);
-        // wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
+        wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
         vmwrite(0x681E, (uint64_t)guest_entry);
+        int error;
+    uint32_t revision_id = rdmsr(0x480);
+    uint32_t *ptr;
+    // // vmxonptr = (uintptr_t)ptr;
+    // // ptr[0] = revision_id;
+    // // asm volatile ("vmxon %1" : "=@ccbe" (error) : "m" (ptr));
+    // // asm volatile ("vmxoff");
+    // // asm volatile ("vmxon %1" : "=@ccbe" (error) : "m" (ptr));
+    // // initialize VMCS
+    wprintf(L"Initialize VMCS\r\n");
+    // __builtin_memset(vmcs, 0, 4096);
+    ptr = (uint32_t *)vmcs;
+    asm volatile ("vmclear %1" : "=@ccbe" (error) : "m" (ptr));
+    ptr[0] = revision_id;
+    asm volatile ("vmptrld %1" : "=@ccbe" (error) : "m" (ptr));
+    for(int i; i < 152; i++){
+        vmwrite(vmcs_index[i],restore_vmcs[i]);
+    }
         reason = 18;
         arg=1;
-        vmwrite(0x681E, (uint64_t)guest_entry);
+        // vmwrite(0x681E, (uint64_t)guest_entry);
         vmwrite(0x440c, 0);
         goto fuzz;
 
@@ -400,6 +418,17 @@ void host_entry(uint64_t arg)
 
     }
     if(reason == 24){
+        // uint64_t rip = vmread(0x681E); // Guest RIP
+        // uint64_t len = vmread(0x440C); // VM-exit instruction length
+        // wprintf(L"exit reason = %d, rip = 0x%x, len = %d\n", reason,rip,len);      
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
+
+    }
+    if(reason == 37){
         // uint64_t rip = vmread(0x681E); // Guest RIP
         // uint64_t len = vmread(0x440C); // VM-exit instruction length
         // wprintf(L"exit reason = %d, rip = 0x%x, len = %d\n", reason,rip,len);      
@@ -583,6 +612,7 @@ fuzz:
                     if(windex == 0x4002){
                         // continue;
                         // wvalue &= ~(1<<22);
+                        // wvalue |= (1<<27);
                         wvalue &= ~(1<<27);
                     }                    
                     if(windex == 0x4000){
@@ -592,8 +622,9 @@ fuzz:
                         
                     }
                     if(windex == 0x401e){
-                        wvalue &= ~(1<<1);
-                        wvalue &= ~(1<<7);
+                        // wvalue &= ~(1<<1);
+                        wvalue |= (1<<7);
+                        // wvalue &= ~(1<<7);
                         wvalue &= ~(1<<15);
                         wvalue &= ~(1<<17);
                         wvalue &= ~(1<<18);
@@ -639,10 +670,10 @@ fuzz:
                         wvalue &= ~(1<<16);
                     }
                     if(windex == 0x4826) {
-                        wvalue = 0;
+                        // wvalue = 0;
                     }
                     if(windex == 0x4824) {
-                        wvalue &= ~(1<<4);
+                        // wvalue &= ~(1<<4);
                         // wvalue |= 1<<31 ;
                         // wvalue &= ~((0x7) <<8);
                         // wvalue |= ((0x2) <<8);
