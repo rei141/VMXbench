@@ -366,6 +366,17 @@ void host_entry(uint64_t arg)
         goto fuzz;
 
     }
+    if(reason == 7){
+        // uint64_t rip = vmread(0x681E); // Guest RIP
+        // uint64_t len = vmread(0x440C); // VM-exit instruction length
+        // wprintf(L"exit reason = %d, rip = 0x%x, len = %d\n", reason,rip,len);      
+        reason = 18;
+        arg=1;
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        goto fuzz;
+
+    }
     if(reason == 28){
         // uint64_t rip = vmread(0x681E); // Guest RIP
         // uint64_t len = vmread(0x440C); // VM-exit instruction length
@@ -413,7 +424,10 @@ void host_entry(uint64_t arg)
         // for (int i = 0; i < 152;i++){
         //     wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
         // }
+        if(reason == 65){
+        __builtin_longjmp(env, 1);
 
+        }
         // wprintf(L"guest entry = 0x%x\n",(uint64_t)guest_entry);
         vmwrite(0x681E, rip+len);
         // vmwrite(0x681E, (uint64_t)guest_entry);
@@ -881,8 +895,8 @@ fuzz:
     // wprintf(L"rip %x, len %d\n\r", rip , len);
 
     vmwrite(0x681E, rip + len);
-        vmwrite(0x681E, (uint64_t)guest_entry);
-        vmwrite(0x440c, 0);
+        // vmwrite(0x681E, (uint64_t)guest_entry);
+        // vmwrite(0x440c, 0);
     asm volatile("vmresume\n\t");
     wprintf(L"VMRESUME failed: \r\n");
     wprintf(L"0x4000: 0x%x\r\n0x4002: 0x%x\r\n0x401e: 0x%x\r\n",vmread(0x4000),vmread(0x4002),vmread(0x401e));
@@ -1007,87 +1021,74 @@ void guest_entry(void)
         // if(a==4)
         // asm volatile ("invlpg %0" : :"m"(zero)); // 14 vmexit o
         // if(a==5)
-        // asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit o
+        // asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit o sometimes hang
         // if(a==6)
         // asm volatile ("rsm":::); //17 0x80000021x sometimes hang
         // if(a==7)
-        asm volatile ("rdtscp"); // 51 vmexit sometimes hang
+        // asm volatile ("rdtscp"); // 51 vmexit sometimes hang
 //         if(a==8)
-//         __invpcid(0, 0, 0); // 58 vmexit
+        // __invpcid(0, 0, 0); // 58 vmexit sometimes hang
 //         // ;
 //         if(a==9)
-//         asm volatile ("xsetbv":::); //55
+        // asm volatile ("xsetbv":::); //55 sometimes hang
 //         if(a==10)
-//         asm volatile ("encls":::); // 60 vmexit
+        // asm volatile ("encls":::); // 60 vmexit sometimes hang
 //         if(a==11)
-//         asm volatile ("pconfig"); // 65 vmexit
-//         // **********************************
-//         // l++;
-//         // // uint64_t tmp = rdmsr(0xdeadbeaf);
-//         // for(int dev=0; dev < 32; dev++){
-//             // IoIn32(0x0cf8);
-//             // IoOut32(0x0cf8,0);
-//             // wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\n\r",0,dev,0, vendor_id);
-//         // }
-//         // asm volatile ("hlt");
+        // asm volatile ("pconfig"); // 65 vmexit
+        
 
-        
-//         // // // for (int i = 0; i < 1000/sizeof(uint16_t); i += 6) {
-//         // // zero = (uint64_t)input_buf[i+3]<<48 | (uint64_t)input_buf[i+2] << 32 | (uint64_t)input_buf[i+1] << 16| (uint64_t)input_buf[i];
-//         // // zero = (uint64_t)input_buf[3]<<48 | (uint64_t)input_buf[2] << 32 | (uint64_t)input_buf[1] << 16| (uint64_t)input_buf[0];
-        
-//         uint64_t dummy;
 //         if(a==13)
-//         asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
 
 //         // wprintf(L"mov to cr3\r\n");
 //         // zero = 0x0;
 //         if(a==14)
-//         asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
 
 //         // wprintf(L"mov to cr4\r\n");
 //         // zero = 0x0;
 //         if(a==15)
-//         asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
 
 //         // wprintf(L"mov to cr8\r\n");
 //         // zero = 0x0;
-//         // asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
 
 //         // // wprintf(L"clts\r\n");
 //         if(a==16)
-//         asm volatile ("clts");
+        // asm volatile ("clts");
 
 //         // // wprintf(L"mov from cr3\r\n");
+        // uint64_t dummy;
 
 //         if(a==17)
-//         asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
 
 //         // // wprintf(L"mov from cr8\r\n");
 //         if(a==18)
-//         asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
+        // asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
 
 //         if(a==19)
 // {
-//         asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
+        // asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
 // }
 //         if(a==20)
 // {
-//         asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
+        // asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
 // }
 
         // tmp++;
