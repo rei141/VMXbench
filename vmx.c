@@ -431,7 +431,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      // I/O bitmaps control enabled
      for (int bitmap=0; bitmap < 2; bitmap++) {
        if (! IsValidPageAlignedPhyAddr(vm.io_bitmap_addr[bitmap])) {
-        //  wprintf(L"VMFAIL: VMCS EXEC CTRL: I/O bitmap %c phy addr malformed\n", 'A' + bitmap);
+         wprintf(L"VMFAIL: VMCS EXEC CTRL: I/O bitmap %c phy addr malformed\n", 'A' + bitmap);
          return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
        }
      }
@@ -441,7 +441,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      // MSR bitmaps control enabled
      vm.msr_bitmap_addr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_MSR_BITMAPS);
      if (! IsValidPageAlignedPhyAddr(vm.msr_bitmap_addr)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: MSR bitmap phy addr malformed\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: MSR bitmap phy addr malformed\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
@@ -476,12 +476,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING) {
      vm.vmread_bitmap_addr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_VMREAD_BITMAP_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.vmread_bitmap_addr)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: VMREAD bitmap phy addr malformed\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: VMREAD bitmap phy addr malformed\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
      vm.vmwrite_bitmap_addr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_VMWRITE_BITMAP_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.vmwrite_bitmap_addr)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: VMWRITE bitmap phy addr malformed\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: VMWRITE bitmap phy addr malformed\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
@@ -489,8 +489,10 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_VIOLATION_EXCEPTION) {
      vm.ve_info_addr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_VE_EXCEPTION_INFO_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.ve_info_addr)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: broken #VE information address\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: broken #VE information address\n");
+       vm.vmexec_ctrls3 &= ~VMX_VM_EXEC_CTRL3_EPT_VIOLATION_EXCEPTION;
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
 #endif
@@ -499,7 +501,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls2 & VMX_VM_EXEC_CTRL2_TPR_SHADOW) {
      vm.virtual_apic_page_addr = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_VIRTUAL_APIC_PAGE_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.virtual_apic_page_addr)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: virtual apic phy addr malformed\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: virtual apic phy addr malformed\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
 
@@ -537,7 +539,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
          uint8_t tpr_shadow = (VMX_Read_Virtual_APIC_VTPR() >> 4) & 0xf;
          wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
          if (vm.vm_tpr_threshold > tpr_shadow) {
-          //  wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
+           wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
            return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
          }
        }
@@ -562,7 +564,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_ACCESSES) {
      vm.apic_access_page = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_APIC_ACCESS_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.apic_access_page)) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: apic access page phy addr malformed\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: apic access page phy addr malformed\n");
        return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
 
@@ -651,7 +653,9 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
     vm.pml_address = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_PML_ADDRESS);
     if (! IsValidPageAlignedPhyAddr(vm.pml_address)) {
        wprintf(L"VMFAIL: VMCS EXEC CTRL: PML base phy addr malformed\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+       vm.vmexec_ctrls3 &= ~VMX_VM_EXEC_CTRL3_PML_ENABLE;
+       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
     }
     vm.pml_index = vmread(VMCS_16BIT_GUEST_PML_INDEX);
   }
@@ -727,13 +731,13 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      vm.vmexit_msr_store_addr = vmread(VMCS_64BIT_CONTROL_VMEXIT_MSR_STORE_ADDR);
      if ((vm.vmexit_msr_store_addr & 0xf) != 0 || ! IsValidPhyAddr(vm.vmexit_msr_store_addr)) {
        wprintf(L"VMFAIL: VMCS VMEXIT CTRL: msr store addr malformed\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
 
      uint64_t last_byte = vm.vmexit_msr_store_addr + (vm.vmexit_msr_store_cnt * 16) - 1;
      if (! IsValidPhyAddr(last_byte)) {
        wprintf(L"VMFAIL: VMCS VMEXIT CTRL: msr store addr too high\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
 
@@ -741,13 +745,13 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      vm.vmexit_msr_load_addr = vmread(VMCS_64BIT_CONTROL_VMEXIT_MSR_LOAD_ADDR);
      if ((vm.vmexit_msr_load_addr & 0xf) != 0 || ! IsValidPhyAddr(vm.vmexit_msr_load_addr)) {
        wprintf(L"VMFAIL: VMCS VMEXIT CTRL: msr load addr malformed\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
 
      uint64_t last_byte = (uint64_t) vm.vmexit_msr_load_addr + (vm.vmexit_msr_load_cnt * 16) - 1;
      if (! IsValidPhyAddr(last_byte)) {
        wprintf(L"VMFAIL: VMCS VMEXIT CTRL: msr load addr too high\n");
-       return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+      //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
 
@@ -875,13 +879,20 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
        case BX_PRIVILEGED_SOFTWARE_INTERRUPT:
        case BX_SOFTWARE_EXCEPTION:
         //  if ((vm.vmentry_instr_length == 0 && !BX_SUPPORT_VMX_EXTENSION(BX_VMX_SW_INTERRUPT_INJECTION_ILEN_0)) || 
-         if ((vm.vmentry_instr_length == 0 && !(VMX_MSR_MISC & 1<<30)) || 
-              vm.vmentry_instr_length > 15)
+         if ((vm.vmentry_instr_length == 0 && !(VMX_MSR_MISC & 1<<30)))
          {
            wprintf(L"VMFAIL: VMENTRY bad injected event instr length\n");
          //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
            vm.vmentry_instr_length &= 0xf;
            vm.vmentry_instr_length |= 0x1;
+           vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INSTRUCTION_LENGTH, vm.vmentry_instr_length);
+
+         }
+         if (vm.vmentry_instr_length > 15)
+         {
+           wprintf(L"VMFAIL: VMENTRY bad injected event instr length\n");
+         //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+           vm.vmentry_instr_length = 0;
            vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INSTRUCTION_LENGTH, vm.vmentry_instr_length);
 
          }
@@ -923,14 +934,19 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
        // exception with or without an error code, regardless of vector as indicated in VMX_MSR_VMX_BASIC[56]
        if (push_error != push_error_reference) {
          wprintf(L"VMFAIL: VMENTRY injected event vector %d broken error code\n", vector);
-         return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         push_error = push_error_reference;
+         vm.vmentry_interr_info &= ~(1 << 11);
+         vm.vmentry_interr_info |= (push_error_reference << 11);
+         vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm.vmentry_interr_info);
+        //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
        }
      }
 
      if (push_error) {
        if (error_code & 0xffff0000) {
          wprintf(L"VMFAIL: VMENTRY bad error code 0x%08x for injected event %d\n", error_code, vector);
-         return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+         vmwrite(VMCS_32BIT_CONTROL_VMENTRY_EXCEPTION_ERR_CODE, error_code&0x0000ffff);
+        //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
        }
      }
   }
@@ -1395,15 +1411,21 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
 #if BX_SUPPORT_VMX >= 2
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
-     if (~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))) {
-       vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
-       vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+    //  if (~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))) {
+    //    vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
+    //    vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
+    //     wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+    //     // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    //  }
+     if (~guest.cr0 & (VMX_MSR_CR0_FIXED0)) {
+        guest.cr0 |= VMX_MSR_CR0_FIXED0;
+        vmwrite(VMCS_GUEST_CR0, guest.cr0);
         wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
         // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
-
      bool pe = (guest.cr0 & BX_CR0_PE_MASK) != 0;
      bool pg = (guest.cr0 & BX_CR0_PG_MASK) != 0;
+     wprintf(L"guest cr0 0x%x\nif1 0x%x\nif2 0x%x\n", guest.cr0,(~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))),(pg && !pe) );
      if (pg && !pe) {
         wprintf(L"VMENTER FAIL: VMCS unrestricted guest CR0.PG without CR0.PE\n");
        vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
@@ -1411,11 +1433,11 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
         // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
   }
-  else
+if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST)) 
 #endif
   {
      if (~guest.cr0 & VMX_MSR_CR0_FIXED0) {
-      //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+        // wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
       //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
         guest.cr0 |= VMX_MSR_CR0_FIXED0;
         vmwrite(VMCS_GUEST_CR0, guest.cr0);
@@ -1423,7 +1445,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
   }
 
   if (guest.cr0 & ~VMX_MSR_CR0_FIXED1) {
-   //   wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+    //  wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
    //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
       guest.cr0 &= VMX_MSR_CR0_FIXED1;
       vmwrite(VMCS_GUEST_CR0, guest.cr0);
@@ -1671,9 +1693,9 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
              break;
 #if BX_SUPPORT_VMX >= 2
           case BX_DATA_READ_WRITE_ACCESSED:
-             if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
-               if (guest.sregs[BX_SEG_REG_CS].cache.dpl != 0) {
-                 wprintf(L"VMENTER FAIL: VMCS unrestricted guest CS.DPL != 0\n");
+            //  if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
+            //    if (guest.sregs[BX_SEG_REG_CS].cache.dpl != 0) {
+            //      wprintf(L"VMENTER FAIL: VMCS unrestricted guest CS.DPL != 0\n");
                  if (!(vm.vmexec_ctrls3 &(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))){
                    guest.sregs[BX_SEG_REG_CS].cache.type = BX_CODE_EXEC_ONLY_ACCESSED;
                    ar &= 0xfffffff0;
@@ -1695,14 +1717,14 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
                    vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_CS, ar);
                  }
                 //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
-               }
+              //  }
                break;
-             }
+            //  }
              // fall through
 #endif
           default:
-            //  wprintf(L"VMENTER FAIL: VMCS guest CS.TYPE\n");
-             return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+             wprintf(L"VMENTER FAIL: VMCS guest CS.TYPE\n");
+            //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
         }
 
 #if BX_SUPPORT_X86_64
@@ -1869,13 +1891,15 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
 #if BX_SUPPORT_X86_64
   if (! IsCanonical(gdtr_base) || ! IsCanonical(idtr_base)) {
-    // wprintf(L"VMENTER FAIL: VMCS guest IDTR/IDTR.BASE non canonical\n");
+    wprintf(L"VMENTER FAIL: VMCS guest IDTR/IDTR.BASE non canonical\n");
     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 #endif
   if (gdtr_limit > 0xffff || idtr_limit > 0xffff) {
-    //  wprintf(L"VMENTER FAIL: VMCS guest GDTR/IDTR limit > 0xFFFF\n");
-     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+     wprintf(L"VMENTER FAIL: VMCS guest GDTR/IDTR limit > 0xFFFF\n");
+     vmwrite(VMCS_32BIT_GUEST_GDTR_LIMIT, gdtr_limit & 0xffff);
+     vmwrite(VMCS_32BIT_GUEST_IDTR_LIMIT, idtr_limit & 0xffff);
+    //  return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 
   //
@@ -1942,7 +1966,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      }
 #if BX_SUPPORT_X86_64
      if (! IsCanonical(ldtr_base)) {
-        // wprintf(L"VMENTER FAIL: VMCS guest LDTR.BASE non canonical\n");
+        wprintf(L"VMENTER FAIL: VMCS guest LDTR.BASE non canonical\n");
         return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
      }
 #endif
@@ -1962,7 +1986,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
 #if BX_SUPPORT_X86_64
   if (! IsCanonical(tr_base)) {
-    // wprintf(L"VMENTER FAIL: VMCS guest TR.BASE non canonical\n");
+    wprintf(L"VMENTER FAIL: VMCS guest TR.BASE non canonical\n");
     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 #endif
@@ -2022,8 +2046,8 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
       if (! x86_64_guest) break;
       // fall through
     default:
-      // wprintf(L"VMENTER FAIL: VMCS guest incorrect TR type\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      wprintf(L"VMENTER FAIL: VMCS guest incorrect TR type\n");
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 
   //
@@ -2039,11 +2063,11 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
 #if BX_SUPPORT_X86_64
   if (! IsCanonical(guest.sysenter_esp_msr)) {
-    // wprintf(L"VMENTER FAIL: VMCS guest SYSENTER_ESP_MSR non canonical\n");
+    wprintf(L"VMENTER FAIL: VMCS guest SYSENTER_ESP_MSR non canonical\n");
     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
   if (! IsCanonical(guest.sysenter_eip_msr)) {
-    // wprintf(L"VMENTER FAIL: VMCS guest SYSENTER_EIP_MSR non canonical\n");
+    wprintf(L"VMENTER FAIL: VMCS guest SYSENTER_EIP_MSR non canonical\n");
     return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 #endif
@@ -2105,7 +2129,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
   if (! x86_64_guest || !guest.sregs[BX_SEG_REG_CS].cache.u.segment.l) {
     if (GET32H(guest.rip) != 0) {
-      //  wprintf(L"VMENTER FAIL: VMCS guest RIP > 32 bit\n");
+       wprintf(L"VMENTER FAIL: VMCS guest RIP > 32 bit\n");
        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
     }
   }
@@ -2169,8 +2193,10 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
 
   guest.tmpDR6 = (uint32_t) vmread(VMCS_GUEST_PENDING_DBG_EXCEPTIONS);
   if (guest.tmpDR6 & 0xFFFFFFFFFFFFAFF0) {
-    // wprintf(L"VMENTER FAIL: VMCS guest tmpDR6 reserved bits\n");
-    return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+    wprintf(L"VMENTER FAIL: VMCS guest tmpDR6 reserved bits\n");
+    guest.tmpDR6 &= ~0xFFFFFFFFFFFFAFF0;
+    vmwrite(VMCS_GUEST_PENDING_DBG_EXCEPTIONS, guest.tmpDR6);
+    // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
   }
 
   guest.activity_state = vmread(VMCS_32BIT_GUEST_ACTIVITY_STATE);
