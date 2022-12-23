@@ -448,7 +448,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   if (! (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_NMI_EXITING)) {
      if (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_VIRTUAL_NMI) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: misconfigured virtual NMI control\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: misconfigured virtual NMI control\n");
       //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
        vm.vmexec_ctrls1 &= ~(VMX_VM_EXEC_CTRL1_VIRTUAL_NMI);
       //  wprintf(L"vmexec_ctrls1 %x\n", vm.vmexec_ctrls1&VMX_VM_EXEC_CTRL1_VIRTUAL_NMI);
@@ -458,7 +458,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   if (! (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_VIRTUAL_NMI)) {
      if (vm.vmexec_ctrls2 & VMX_VM_EXEC_CTRL2_NMI_WINDOW_EXITING) {
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: misconfigured virtual NMI control\n");
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: misconfigured virtual NMI control\n");
       //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
       //  wprintf(L"VMFAIL: VMCS EXEC CTRL: misconfigured NMI window exiting\n");
        vm.vmexec_ctrls2 &= ~(VMX_VM_EXEC_CTRL2_NMI_WINDOW_EXITING);
@@ -508,7 +508,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 #if BX_SUPPORT_VMX >= 2
      if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUAL_INT_DELIVERY) {
        if (! (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_EXTERNAL_INTERRUPT_VMEXIT)) {
-        //  wprintf(L"VMFAIL: VMCS EXEC CTRL: virtual interrupt delivery must be set together with external interrupt exiting\n");
+         wprintf(L"VMFAIL: VMCS EXEC CTRL: virtual interrupt delivery must be set together with external interrupt exiting\n");
          // return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
          vm.vmexec_ctrls1 |= VMX_VM_EXEC_CTRL1_EXTERNAL_INTERRUPT_VMEXIT;
          vmwrite(VMCS_32BIT_CONTROL_PIN_BASED_EXEC_CONTROLS,vm.vmexec_ctrls1);
@@ -2140,7 +2140,7 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
   //
 
   vm.vmcs_linkptr = vmread(VMCS_64BIT_GUEST_LINK_POINTER);
-//   wprintf(L"vmcs_linkptr %x\n", vm.vmcs_linkptr);
+  // wprintf(L"vmcs_linkptr 0x%x\n", vm.vmcs_linkptr);
   if (vm.vmcs_linkptr != BX_INVALID_VMCSPTR) {
     if (! IsValidPageAlignedPhyAddr(vm.vmcs_linkptr)) {
       *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
@@ -2149,7 +2149,7 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
     }
 
     uint32_t revision = VMXReadRevisionID((bx_phy_address) vm.vmcs_linkptr);
-   //  wprintf(L"revision ID 0x%x\n",revision);
+    wprintf(L"vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x\n",vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
     if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING) {
       if ((revision & BX_VMCS_SHADOW_BIT_MASK) == 0) {
         *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
@@ -2162,6 +2162,7 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
     }
     uint64_t current_vmcsptr;
     vmptrst(&current_vmcsptr);
+    wprintf(L"revision 0x%x, 0x%x\n", revision, VMXReadRevisionID((bx_phy_address) current_vmcsptr));
     // if (revision != vmcs_map->get_vmcs_revision_id()) {
     if (revision != VMXReadRevisionID((bx_phy_address) current_vmcsptr)) {
       *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
@@ -2179,14 +2180,14 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
       if (vm.vmcs_linkptr == current_vmcsptr) {
         *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
         wprintf(L"VMFAIL: VMCS link pointer equal to current VMCS pointer\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
       }
     }
     else {
       if (vm.vmcs_linkptr == vmxonptr) {
         *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
         wprintf(L"VMFAIL: VMCS link pointer equal to VMXON pointer\n");
-        return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
       }
     }
   }
