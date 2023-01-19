@@ -56,6 +56,36 @@ int main(int argc, char** argv) {
     fclose(input);
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
     printf("hello\n");
+
+    struct timeval tv;
+    struct tm *tm;
+
+    gettimeofday(&tv, NULL);
+
+    tm = localtime(&tv.tv_sec);
+    char d_name[200];
+    sprintf(d_name,"fuzz_input/%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour);
+    struct stat st;
+
+    if (stat(d_name, &st) != 0) {
+        if (mkdir(d_name,
+                    S_IRUSR | S_IWUSR | S_IXUSR |
+                    S_IRGRP | S_IWGRP | S_IXGRP |
+                    S_IROTH | S_IWOTH | S_IXOTH) == 0) {
+        } else {
+            perror("mkdir");
+            return 1;
+        }
+
+    }
+    
+    char f_name[200];
+    sprintf(f_name,"fuzz_input/%02d_%02d_%02d/input_%02d_%02d_%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour,tm->tm_mon+1, tm->tm_mday,\
+    tm->tm_hour, tm->tm_min, tm->tm_sec);
+    FILE * record = fopen(f_name,"w");
+    fwrite(ivmshm,sizeof(uint8_t),1400,record);
+    fclose(record);
+    
     // sem_post(sem);
     // ivmshm[3000]=0xdead;
     // memcpy(ivmshm,)

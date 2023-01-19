@@ -198,6 +198,7 @@ char shadow_vmcs[4096] __attribute__ ((aligned (4096)));
 char shadow_vmcs2[4096] __attribute__ ((aligned (4096)));
 char vmxon_region[4096] __attribute__ ((aligned (4096)));
 uint32_t revision_id;
+uint32_t host_hang;
 uint32_t get_seg_limit(uint32_t selector)
 {
 	uint32_t limit;
@@ -214,8 +215,24 @@ uint64_t get_seg_base(uint32_t selector) { return 0; }
 uint64_t count = 0;
 void host_entry(uint64_t arg)
 {
+    input_buf[4003] = 0;
     // tsc_exit[index] = rdtsc() - arg;
     uint64_t reason = vmread(0x4402);
+    if(host_hang == 1){
+        if(reason & 0x80000000){
+            wprintf(L"host_hang==1\n");        
+            __builtin_longjmp(env, 1);
+        }
+        else{
+            // wprintf(L"host_hang==1\n");        
+            host_hang = 0;
+            reason = 18;
+            arg=1;
+            vmwrite(0x681E, (uint64_t)guest_entry);
+            vmwrite(0x440c, 0);
+            goto fuzz;
+        }
+    }
     // wprintf(L"Start fuzzing...\r\n");
     // wprintf(L"vmexit reason %0d\r\n", reason);
         // wprintf(L"VM exit reason %d\n",reason);        
@@ -244,28 +261,24 @@ void host_entry(uint64_t arg)
         // ptr[0] = revision_id;
         // asm volatile ("vmptrld %1" : "=@ccbe" (error) : "m" (ptr));
         for(int i=0; i < vmcs_num; i++){
-            if(!(
+            if(!(0
                 // (vmcs_index[i] & 0x0f00) == 0xc00
                 // || (vmcs_index[i] & 0x0f00) == 0x400
-                (vmcs_index[i] & 0x0f00) == 0x400
-            )){
+                // (vmcs_index[i] & 0x0f00) == 0x400
+            ))
+            {
                 // wprintf(L"vmwrite(0x%x,0x%x);\n", vmcs_index[i], vmread(vmcs_index[i]));
                 vmwrite(vmcs_index[i],restore_vmcs[i]);
             }
         }
-        reason = 18;
-        arg=1;
-        vmwrite(0x681E, (uint64_t)guest_entry);
-        vmwrite(0x440c, 0);
-        goto fuzz;
-        __builtin_longjmp(env, 1);
+        host_hang = 1;
         asm volatile("vmresume\n\t");
         __builtin_longjmp(env, 1);
         vmwrite(0x681E, (uint64_t)guest_entry);
         asm volatile("vmresume\n\t");
         
     }
-    if (reason == 0x0 || reason == 0x1|| reason == 62){
+    if (reason == 0x0 || reason == 0x1|| reason == 62|| reason == 43){
         // uint64_t rip = vmread(0x681E); // Guest RIP
         // uint64_t len = vmread(0x440C); // VM-exit instruction length
         // wprintf(L"exit reason = 0, rip = 0x%x, len = %d\n", rip,len);
@@ -406,7 +419,7 @@ fuzz:
         wprintf(L"goodbye:)\n");
         __builtin_longjmp(env, 1);
 	}
-            uint16_t flag;
+            uint16_t flag=0;
         uint16_t windex;
         uint64_t wvalue;
 
@@ -419,7 +432,9 @@ fuzz:
             wprintf(L"%d\r\n",count);
             // vmcall_with_vmcall_number(13);
             input_buf[4001] = 1; 
-            // flag = input_buf[4000];
+            flag++;
+            vmwrite(0x2,count);
+            flag = input_buf[4000];
             while(1){
                 flag = input_buf[4000];
                 // wprintf(L"%d",flag);
@@ -429,6 +444,7 @@ fuzz:
                 }
             }
             input_buf[4000] = 0;
+            input_buf[4003] = 1;
 
             wvalue = (uint64_t)input_buf[3]<<48 
             | (uint64_t)input_buf[3] << 32 
@@ -446,9 +462,10 @@ fuzz:
 
             // for (int i = 0; i < 4092/sizeof(uint16_t); i += 4) {
             for (int i = 0*4; i <vmcs_num*4; i += 4) {
+            // for (int i = 0*4; i <0; i += 4) {
             // for (int i = 4*72; i <4*73; i += 4) {
             // for (int i = 4*60; i <4*71; i += 4) {
-            // for (int i = 0*4; i <6*4; i += 4) {
+            // for (int i = 50*4; i <70*4; i += 4) {
                 if(i/4 == vmcs_num) {
                     break;
                 }
@@ -514,8 +531,8 @@ fuzz:
                 // || windex == 0x400c//VMEXIT_CONTROLS
                 // || windex == 0x4012//VMENTRY_CONTROLS
                 // || windex == 0x400e 
-                || windex == 0x4010 // vmexit msr load count
-                || windex == 0x4014 // vmentry msr load count
+                // || windex == 0x4010 // vmexit msr load count
+                // || windex == 0x4014 // vmentry msr load count
                 || windex == 0x4016 //VMENTRY_INTERRUPTION_INFO sometimes hang
                 // || windex == 0x4826 // guest activity state
                 // || windex == 0x4824 // guest interuptibility state
@@ -542,9 +559,9 @@ fuzz:
                 // || windex == 0x4822
 
                 //RO fields
-                ||(windex & 0xff00) == 0x2400
-                ||(windex & 0xff00) == 0x4400
-                ||(windex & 0xff00) == 0x6400
+                // ||(windex & 0xff00) == 0x2400
+                // ||(windex & 0xff00) == 0x4400
+                // ||(windex & 0xff00) == 0x6400
                 // || windex ==0x400a
                 ){         
                     continue;
@@ -584,7 +601,7 @@ fuzz:
                         // wvalue &= 0xf3ff;
                         wvalue |= 1<<9; // sometimes 0x800000021
                     }                    
-                    if(windex == 0x400e || windex == 0x4010) {
+                    if(windex == 0x400e || windex == 0x4010 || windex == 0x4014) {
                         wvalue &= 0x1ff;
                     }
                     if(windex == 0x4816){ // CS access rights 9,11,13,15
@@ -628,6 +645,7 @@ fuzz:
                         // wvalue &= ~((0x7) <<8);
                         // wvalue |= ((0x2) <<8);
                     }
+                    
                     vmwrite(windex, wvalue);
                     // wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, wvalue);
                     // vmwrite(0x482e,0xffffffff);
@@ -635,7 +653,18 @@ fuzz:
     
             // input_buf[4001] = 1;
 
-
+    // vmwrite(0x482e,100000000ull);
+    // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+// vmwrite(0x4016, 0x80000311);
+// vmwrite(0x4016, 0x80000a02);
+// vmwrite(0x4016, 0x0);
+// vmwrite(0x4016, 0x800004a1);
+// vmwrite(0x4016, 0x3539f451);
+// vmwrite(0x4016, 0x800006ac);
+// vmwrite(0x4016, 0x8000006f);
+    // vmwrite(0x4010,513);
+    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    wprintf(L"11:0x%x, 10-8:0x%x, 7-0:0x%x\n", (vmread(0x4016)>>11)&1, (vmread(0x4016)>>8)&0x7, vmread(0x4016)&0xff);
 
     vmwrite(0x4800,get_seg_limit(vmread(0x800)));
     vmwrite(0x4802,get_seg_limit(vmread(0x802)));
@@ -669,8 +698,10 @@ fuzz:
             break;
         }
     }
-    // if (count == 2)
-// vmwrite(0x401e, 0x1);
+//     if (count == 2)
+// vmwrite(0x4000, 0x1);
+    wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+    wprintf(L"11:0x%x, 10-8:0x%x, 7-0:0x%x\n", (vmread(0x4016)>>11)&1, (vmread(0x4016)>>8)&0x7, vmread(0x4016)&0xff);
     
     // wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
         for(int i=0; i < vmcs_num; i++){
@@ -679,18 +710,86 @@ fuzz:
                 || (vmcs_index[i] & 0x0f00) == 0x400
                 // (vmcs_index[i] & 0x0f00) == 0x400
             )){
-                wprintf(L"vmwrite(0x%x,0x%x);\n", vmcs_index[i], vmread(vmcs_index[i]));
+                ;
+                // wprintf(L"vmwrite(0x%x,0x%x);\n", vmcs_index[i], vmread(vmcs_index[i]));
                 // vmwrite(vmcs_index[i],restore_vmcs[i]);
             }
         }
 
-    uint64_t rip = vmread(0x681E); // Guest RIP
-    uint64_t len = vmread(0x440C); // VM-exit instruction length
+    // uint64_t rip = vmread(0x681E); // Guest RIP
+    // uint64_t len = vmread(0x440C); // VM-exit instruction length
     // wprintf(L"rip %x, len %d\n\r", rip , len);
 
-    vmwrite(0x681E, rip + len);
-        // vmwrite(0x681E, (uint64_t)guest_entry);
-        // vmwrite(0x440c, 0);
+    // vmwrite(0x681E, rip + len);
+
+    windex = vmcs_index[input_buf[152*4]%153];
+    wvalue = input_buf[152*4+1]; 
+    if(input_buf[152*4+5] &0x1){
+        if (windex < 0x2000) {
+        } else if (windex < 0x4000) {
+            wvalue = (uint64_t)vmread(windex)^(1<<(input_buf[152*4+2]%64)); 
+        } else if (windex < 0x6000) {
+            wvalue = (uint64_t)vmread(windex)^(1<<(input_buf[152*4+2]%32)); 
+        } else {
+            wvalue = (uint64_t)vmread(windex)^(1<<(input_buf[152*4+2]%64)); 
+        }
+    }
+    else{
+        if (windex < 0x2000) {
+        } else if (windex < 0x4000) {
+            wvalue = (uint64_t)input_buf[152*4+4]<<48 | (uint64_t)input_buf[152*4+3] << 32 | (uint64_t)input_buf[152*4+2] << 16|wvalue; 
+        } else if (windex < 0x6000) {
+            wvalue = (uint32_t)input_buf[152*4+2]<<16 | wvalue;
+        } else {
+            wvalue = (uint64_t)input_buf[152*4+4]<<48 | (uint64_t)input_buf[152*4+3] << 32 | (uint64_t)input_buf[152*4+2] << 16|wvalue;  
+        }
+    }
+    if((windex&0x0f00) != 0xc00){
+        if(windex == 0x400e || windex == 0x681c || windex == 0x6816){
+            ;
+        }
+        else{
+            vmwrite(windex, wvalue);
+            wprintf(L"vmwrite(0x%x,0x%x);\n",windex,wvalue);
+        }
+    }
+    // wprintf(L"vmwrite(0x440e, 0x%x);\n", vmread(0x440e));
+    //     vmwrite(0x440e,0x00ffffffffffffff);
+    // wprintf(L"vmwrite(0x440e, 0x%x);\n", vmread(0x440e));
+    // vmwrite(0x4010,25000);
+        vmwrite(0x681E, (uint64_t)guest_entry);
+        vmwrite(0x440c, 0);
+        // vmwrite(0x4012, vmread(0x4012)&~(1<<15));
+    asm volatile("vmresume\n\t");
+            // __builtin_longjmp(env, 1);
+    host_hang=1;
+        for(int i=0; i < vmcs_num; i++){
+            // if(!(
+            //     // (vmcs_index[i] & 0x0f00) == 0xc00
+            //     // || (vmcs_index[i] & 0x0f00) == 0x400
+            //     (vmcs_index[i] & 0x0f00) == 0x400
+            // ))
+            {
+                // wprintf(L"vmwrite(0x%x,0x%x);\n", vmcs_index[i], vmread(vmcs_index[i]));
+                vmwrite(vmcs_index[i],restore_vmcs[i]);
+            }
+        }
+    // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+        // for(int i=0; i < vmcs_num; i++){
+        //     // if(!(
+        //     //     // (vmcs_index[i] & 0x0f00) == 0xc00
+        //     //     // || (vmcs_index[i] & 0x0f00) == 0x400
+        //     //     (vmcs_index[i] & 0x0f00) == 0x400
+        //     // ))
+        //     if(restore_vmcs[i] != vmread(vmcs_index[i]))
+        //     {
+        //         wprintf(L"index 0x%x, restore_vmcs 0x%x, vmread 0x%x;\n", vmcs_index[i], restore_vmcs[i],vmread(vmcs_index[i]));
+        //         // vmwrite(vmcs_index[i],restore_vmcs[i]);
+        //     }
+        // }
+    wprintf(L"VMRESUME failed: \r\n");
+            // __builtin_longjmp(env, 1);
+    
     asm volatile("vmresume\n\t");
     wprintf(L"VMRESUME failed: \r\n");
     // wprintf(L"0x4000: 0x%x\r\n0x4002: 0x%x\r\n0x401e: 0x%x\r\n",vmread(0x4000),vmread(0x4002),vmread(0x401e));
@@ -767,9 +866,13 @@ void guest_entry(void)
         // vmcall(1);
         // input_buf[4001] = 1;
     // }
+    //     rdmsr(0x10);
+    // wrmsr(0x10, 0x10);
     while(1){
         // SystemTable->BootServices->Stall(10);
         // asm volatile ("getsec":::); // 11 vmexit x o sometimes hang
+        // vmread(0x00);
+        // vmwrite(0x00,0);
         if (count ==0)
             vmcall(1);
         // input_buf[4001] = 1;
@@ -789,13 +892,8 @@ void guest_entry(void)
         uint32_t ecx;
 
         asm volatile ("cpuid" : "=c" (ecx) : "a" (1) : "ebx", "edx");
-            invept_t inv;
-            inv.rsvd = 0;
-            inv.ptr = 0;
-            // i.ptr = wvalue;
-            invept((uint64_t)0,&inv);
-            invvpid((uint64_t)0,&inv);
-        uint16_t a = input_buf[613]%21;
+
+        uint16_t a = input_buf[613]%22;
 
         uint32_t index;
         uint64_t value;
@@ -816,7 +914,9 @@ void guest_entry(void)
             // uint32_t ecx;
             // asm volatile ("cpuid" : "=c" (ecx) : "a" (index) : "ebx", "edx");
         }
-
+        if(a==21){
+            asm volatile ("vmfunc":::);
+        }
         if(a==0){
             asm volatile ("mov %0, %%dx" ::"r" (input_buf[620]));
             asm volatile ("mov %0, %%eax" ::"r" ((uint32_t)input_buf[621]));
@@ -825,82 +925,90 @@ void guest_entry(void)
             asm volatile("in %dx, %eax");
         }
         // **********************************
-//         if(a==2)
-        // asm volatile ("getsec":::); // 11 vmexit x vmexit vmx non-root
-//         if(a==3) xxx 
-//         asm volatile ("hlt"); //12 x
-//         if(a==4)
-//         asm volatile ("invlpg %0" : :"m"(zero)); // 14 vmexit o
-//         if(a==5)
-//         asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit o sometimes hang
-//         if(a==6)
-//         asm volatile ("rsm":::); //17 0x80000021x sometimes hang
-//         if(a==7)
-//         asm volatile ("rdtscp"); // 51 vmexit sometimes hang
-//         if(a==8)
-//         __invpcid(0, 0, 0); // 58 vmexit sometimes hang
-//         // ;
-//         if(a==9)
-//         asm volatile ("xsetbv":::); //55 sometimes hang
-//         if(a==10)
-//         asm volatile ("encls":::); // 60 vmexit sometimes hang
-//         if(a==11)
-//         asm volatile ("pconfig"); // 65 vmexit sometimes hang
+        if(a==2)
+        asm volatile ("getsec":::); // 11 vmexit x vmexit vmx non-root
+        if(a==3){
+                        invept_t inv;
+            inv.rsvd = 0;
+            inv.ptr = 0;
+            // i.ptr = wvalue;
+            invept((uint64_t)0,&inv);
+            invvpid((uint64_t)0,&inv);
+        }
+//         // if(a==3) xxx 
+//         // asm volatile ("hlt"); //12 x
+        if(a==4)
+        asm volatile ("invlpg %0" : :"m"(zero)); // 14 vmexit o
+        if(a==5)
+        asm volatile ("rdpmc": "+c" (zero) : : "%rax"); // 15 vmexit o sometimes hang
+        if(a==6)
+        asm volatile ("rsm":::); //17 0x80000021x sometimes hang
+        if(a==7)
+        asm volatile ("rdtscp"); // 51 vmexit sometimes hang
+        if(a==8)
+        __invpcid(0, 0, 0); // 58 vmexit sometimes hang
+        // ;
+        if(a==9)
+        asm volatile ("xsetbv":::); //55 sometimes hang
+        if(a==10)
+        asm volatile ("encls":::); // 60 vmexit sometimes hang
+        if(a==11)
+        asm volatile ("pconfig"); // 65 vmexit sometimes hang
         
 
-//         if(a==13)
-//         asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
+        if(a==13)
+        asm volatile ("movq %0, %%cr0" : "+c" (zero) : : "%rax");
 
-//         // wprintf(L"mov to cr3\r\n");
-//         // zero = 0x0;
-//         if(a==14)
-//         asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
+        // wprintf(L"mov to cr3\r\n");
+        // zero = 0x0;
+        if(a==14)
+        asm volatile ("movq %0, %%cr3" : "+c" (zero) : : "%rax");
 
-//         // wprintf(L"mov to cr4\r\n");
-//         // zero = 0x0;
-//         if(a==15)
-//         asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
+        // wprintf(L"mov to cr4\r\n");
+        // zero = 0x0;
+        if(a==15)
+        asm volatile ("movq %0, %%cr4" : "+c" (zero) : : "%rax");
 
-//         // wprintf(L"mov to cr8\r\n");
-//         // zero = 0x0;
-//         asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
+        // wprintf(L"mov to cr8\r\n");
+        // zero = 0x0;
+        asm volatile ("movq %0, %%cr8" : "+c" (zero) : : "%rax");
 
-//         // // wprintf(L"clts\r\n");
-//         if(a==16)
-//         asm volatile ("clts"); // sometimes hang
+        // // wprintf(L"clts\r\n");
+        if(a==16)
+        asm volatile ("clts"); // sometimes hang
 
-//         // // wprintf(L"mov from cr3\r\n");
-//         uint64_t dummy;
+        // // wprintf(L"mov from cr3\r\n");
+        uint64_t dummy;
 
-//         if(a==17)
-//         asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
+        if(a==17)
+        asm volatile ("movq %%cr3, %0" : "=c" (dummy) : : "%rbx");
 
-//         // // wprintf(L"mov from cr8\r\n");
-//         if(a==18)
-//         asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
+        // // wprintf(L"mov from cr8\r\n");
+        if(a==18)
+        asm volatile ("movq %%cr8, %0" : "=c" (dummy) : : "%rbx", "%rsi");
 
-//         if(a==19)
-// {
-//         asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
-//         asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
-// }
-//         if(a==20)
-// {
-//         asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
-//         asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
-// }
+        if(a==19)
+{
+        asm volatile ("movq %0, %%dr0" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr1" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr2" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr3" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr4" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr5" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr6" : "+c" (zero) : : "%rax");
+        asm volatile ("movq %0, %%dr7" : "+c" (zero) : : "%rax");
+}
+        if(a==20)
+{
+        asm volatile ("movq %%dr0, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr1, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr2, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr3, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr4, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr5, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr6, %0" : "=c" (dummy) : : "%rbx");
+        asm volatile ("movq %%dr7, %0" : "=c" (dummy) : : "%rbx");
+}
 
         // tmp++;
         // wprintf(L"%x\r\n",tmp);
@@ -959,9 +1067,13 @@ char vmread_bitmap[4096] __attribute__ ((aligned (4096)));
 char vmwrite_bitmap[4096] __attribute__ ((aligned (4096)));
 char apic_access[4096] __attribute__ ((aligned (4096)));
 char virtual_apic[4096] __attribute__ ((aligned (4096)));
-char msr_load[8192] __attribute__ ((aligned (4096)));
-char msr_store[8192] __attribute__ ((aligned (4096)));
-char vmentry_msr_load[8192] __attribute__ ((aligned (4096)));
+// char msr_load[8192] __attribute__ ((aligned (4096)));
+// char msr_store[8192] __attribute__ ((aligned (4096)));
+// char vmentry_msr_load[8192] __attribute__ ((aligned (4096)));
+uint64_t msr_load[1024] __attribute__ ((aligned (4096)));
+uint64_t msr_store[1024] __attribute__ ((aligned (4096)));
+uint64_t vmentry_msr_load[1024] __attribute__ ((aligned (4096)));
+uint64_t posted_int_desc[64] __attribute__ ((aligned (4096)));
 
 struct MSR_BITMAP
 {
@@ -1133,6 +1245,7 @@ EfiMain (
     // uint32_t pinbased_ctls = apply_allowed_settings(0x28, 0x48d);
     uint32_t pinbased_ctls = apply_allowed_settings(0x7f, 0x481);
     vmwrite(0x482e,0xffffffff);
+    vmwrite(0x482e,100000000ull);
     // wprintf(L"0x481: 0x%x\r\n",rdmsr(0x481));
     // wprintf(L"0x48b: 0x%x\r\n",rdmsr(0x48b));
 
@@ -1157,6 +1270,9 @@ EfiMain (
     1<<12|1<<11|1<<10|1<<9|1<<7|1<<2),0x482));
     // vmwrite(0x2034,apply_allowed_settings(0x1,0x492));
     vmwrite(0x4004, 0x0);            // Exception bitmap
+    vmwrite(0x4004, 0x1<<14|14);            // Exception bitmap
+    vmwrite(0x4006, 0xffffffff);            // Exception bitmap
+    vmwrite(0x4008, 0xffffffff);            // Exception bitmap
     uint32_t exit_ctls = apply_allowed_settings(0xffffff, 0x483);
     vmwrite(0x400c, exit_ctls);      // VM-exit controls
     uint32_t entry_ctls = apply_allowed_settings(0x93ff, 0x484);
@@ -1165,6 +1281,7 @@ EfiMain (
     vmwrite(0x401e, apply_allowed_settings((0x02113d4d|1<<27|1<<26|1<<25|1<<20|
     1<<16|1<<14|1<<13|1<<12|1<<11|1<<10|1<<9|1<<8|1<<6|1<<4|1<<5|1<<3|1<<2) & ~(1<<0),0x48b));
     vmwrite(0x0, 0xffff);
+    // vmwrite(0x0, 0x0);
     // vmwrite(0x401e, apply_allowed_settings(0x0213fbff|1<<14,0x48b));
     // enlightened_vmcs213fbf
     // vmwrite(0x401e, apply_allowed_settings(0x02110d4d,0x48b));
@@ -1196,19 +1313,30 @@ EfiMain (
     shadow_ptr[0] = rdmsr(0x480)| BX_VMCS_SHADOW_BIT_MASK;
     uintptr_t SHADOW_VMCS_LINK_PTR = (uintptr_t)shadow_vmcs2;
     vmwrite(0x2800, SHADOW_VMCS_LINK_PTR);
+        wprintf(L"vmwrite(0x2800, 0x%x);\n", vmread(0x2800));
 
     SHADOW_VMCS_LINK_PTR = (uintptr_t)vmread_bitmap;
     vmwrite(0x2028, SHADOW_VMCS_LINK_PTR);
     SHADOW_VMCS_LINK_PTR = (uintptr_t)vmwrite_bitmap;
     vmwrite(0x2026, SHADOW_VMCS_LINK_PTR);
     vmwrite(0x2032, 0xffffffffffffffff);
+    // memset(&msr_store, 0xff, sizeof(msr_store));
+    // memset(&msr_load, 0xff, sizeof(msr_load));
+    // memset(&vmentry_msr_load, 0xff, sizeof(vmentry_msr_load));
+    for(int i = 0; i < 1024; i++){
+        msr_store[i] = 0x10;
+        msr_load[i] = 0x10;
+        vmentry_msr_load[i] = 0x10;
+    }
 
     uintptr_t msr_store_addr = (uintptr_t)msr_store;
     uintptr_t msr_load_addr = (uintptr_t)msr_load;
     uintptr_t vmentry_msr_load_addr = (uintptr_t)vmentry_msr_load;
+    uintptr_t posted_int_desc_addr = (uintptr_t)posted_int_desc;
     vmwrite(0x2006, msr_store_addr);
     vmwrite(0x2008, msr_load_addr);
     vmwrite(0x200a, vmentry_msr_load_addr);
+    vmwrite(0x2016, posted_int_desc_addr);
     // vmwrite(0x401e, 0x2177fff);
     // wprintf(L"0x%x\r\n\r",vmread(0x401e));
     // struct MSR_BITMAP MSR_BITMAP1;
@@ -1373,7 +1501,7 @@ EfiMain (
      wprintf(L"0x6800 0x%x\n",apply_fixed_bits(0xffffffff, 0x486, 0x487));
      wprintf(L"0x6802 0x%x\n",vmread(0x6802));
      vmwrite(0x4002,0xcd0973fe|1<<21|1<<24|1<<25|1<<15);
-     vmwrite(0x4000,0x7e);
+    //  vmwrite(0x4000,0x7e|1<<7);
      vmwrite(0x4002,0xf7b9fff6);
 
     /* 0xcd0973fe 0b11001101000010010111001111111110
@@ -1428,7 +1556,7 @@ EfiMain (
 
     uint32_t ctrls3 = 0 |
                     //   1 <<  0 |
-                      1 <<  1 |
+                    //   1 <<  1 |
                       1 <<  2 |
                       1 <<  3 |
                       1 <<  4 |
@@ -1489,6 +1617,7 @@ EfiMain (
     // vmwrite(0x4010, 0x1);
     // vmwrite(0x4014, 1);
     // wprtinf()
+    vmwrite(0x4000, vmread(0x4000)|1<<7);  // Pin-based VM-execution controls
 
 // vmwrite(VMCS_16BIT_GUEST_ES_SELECTOR  + 2*BX_SEG_REG_SS, 0x7d93);
 // vmwrite(VMCS_32BIT_GUEST_ES_ACCESS_RIGHTS + 2*BX_SEG_REG_SS, 0xa0f7);
@@ -1516,6 +1645,156 @@ EfiMain (
     //         wprintf(L"vmcs %d 0x%x\n",i,vp[i]);
     // }
     // //////////////////////
+    // rdmsr(0x10);
+    // wrmsr(0x10, 0x10);
+    // vmwrite(0x2806, vmread(0x2806)&(~1<<10));
+    //  vmwrite(0x4000,0x7e|1<<7);
+// vmwrite(0x0,0xa8b1);
+// vmwrite(0x2,0xda);
+// vmwrite(0x4,0x4);
+// vmwrite(0x800,0x53b9);
+// vmwrite(0x802,0x40e4);
+// vmwrite(0x804,0x5cac);
+// vmwrite(0x806,0x7e29);
+// vmwrite(0x808,0x2d13);
+// vmwrite(0x80a,0x615);
+// vmwrite(0x80c,0x9d8e);
+// vmwrite(0x80e,0xbb30);
+// vmwrite(0x810,0x3c4d);
+// vmwrite(0x812,0x7e64);
+// vmwrite(0xc00,0x8);
+// vmwrite(0xc02,0x28);
+// vmwrite(0xc04,0x8);
+// vmwrite(0xc06,0x8);
+// vmwrite(0xc08,0x8);
+// vmwrite(0xc0a,0x8);
+// vmwrite(0xc0c,0x8);
+// vmwrite(0x2000,0x1e6f0000);
+// vmwrite(0x2002,0x1e6f0000);
+// vmwrite(0x2004,0x1e6f1000);
+// vmwrite(0x2006,0x1e6f8000);
+// vmwrite(0x2008,0x1e6f6000);
+// vmwrite(0x200a,0x1e6fa000);
+// vmwrite(0x200c,0x34);
+// vmwrite(0x200e,0x0);
+// vmwrite(0x2010,0x0);
+// vmwrite(0x2012,0x1e6f5000);
+// vmwrite(0x2014,0x1e6f4000);
+// vmwrite(0x2016,0x1e6fc000);
+// vmwrite(0x2018,0x0);
+// vmwrite(0x201a,0x1e6fd05e);
+// vmwrite(0x201c,0x0);
+// vmwrite(0x201e,0x0);
+// vmwrite(0x2020,0x0);
+// vmwrite(0x2022,0x0);
+// vmwrite(0x2024,0x0);
+// vmwrite(0x2028,0x1e6f2000);
+// vmwrite(0x202a,0x50);
+// vmwrite(0x202c,0x0);
+// vmwrite(0x202e,0x0);
+// vmwrite(0x2032,0xffffffffffffffff);
+// vmwrite(0x2800,0x1e6ea000);
+// vmwrite(0x2802,0x0);
+// vmwrite(0x2804,0xb724769bf54f7895);
+// vmwrite(0x2806,0x500);
+// vmwrite(0x2808,0x0);
+// vmwrite(0x280a,0x0);
+// vmwrite(0x280c,0x0);
+// vmwrite(0x280e,0x0);
+// vmwrite(0x2810,0x0);
+// vmwrite(0x2c00,0x70605040100);
+// vmwrite(0x2c02,0x500);
+// vmwrite(0x2c04,0x0);
+// vmwrite(0x4000,0xbf); //0b10111111
+// vmwrite(0x4000,0x56); //0b01010110
+// vmwrite(0x4000,0x56|1<<3|1<<5|1<<7);
+// vmwrite(0x4002,0x25a1fd7a);
+// vmwrite(0x4002,0xa521fd7a);
+// vmwrite(0x4002,0x2581fd7a);
+// vmwrite(0x4004,0xc07f5c30);
+// vmwrite(0x4006,0x6f1d2c5f);
+// vmwrite(0x4008,0xef4eb882);
+// vmwrite(0x400a,0x0);
+// vmwrite(0x400c,0x13efff);
+// vmwrite(0x400e,0xf7);
+// vmwrite(0x4010,0x0);
+// vmwrite(0x4012,0x93fb);
+// vmwrite(0x4014,0x0);
+// vmwrite(0x4016,0x80000700);
+// vmwrite(0x4018,0x3d5dc1e);
+// vmwrite(0x401a,0x341458be);
+// vmwrite(0x401c,0x40c8ffa6);
+// vmwrite(0x401e,0x200);
+// vmwrite(0x4020,0x92);
+// vmwrite(0x4022,0x94);
+// vmwrite(0x4800,0x53b9);
+// vmwrite(0x4802,0x40e4);
+// vmwrite(0x4804,0x5cae);
+// vmwrite(0x4806,0x7e29);
+// vmwrite(0x4808,0x2d13);
+// vmwrite(0x480a,0x615);
+// vmwrite(0x480c,0xfff);
+// vmwrite(0x480e,0xffff);
+// vmwrite(0x4810,0x5e28);
+// vmwrite(0x4812,0xb345);
+// vmwrite(0x4814,0x10fb);
+// vmwrite(0x4816,0x209b);
+// vmwrite(0x4818,0x4093);
+// vmwrite(0x481a,0x1d0f5);
+// vmwrite(0x481c,0x14084);
+// vmwrite(0x481e,0x1c0a7);
+// vmwrite(0x4820,0x100d9);
+// vmwrite(0x4822,0xf0eb);
+// vmwrite(0x4824,0x8);
+// vmwrite(0x4826,0x0);
+// vmwrite(0x4828,0xce);
+// vmwrite(0x482a,0x478b1fa);
+// vmwrite(0x482e,0x48f58c61);
+// vmwrite(0x4c00,0x0);
+// vmwrite(0x6000,0xdec04c3ffcb7e5c3);
+// vmwrite(0x6002,0x9d86f337bdd7abd9);
+// vmwrite(0x6004,0x3595a25f751634a5);
+// vmwrite(0x6006,0xc5515e8301745f);
+// vmwrite(0x6008,0xde);
+// vmwrite(0x600a,0xe0);
+// vmwrite(0x600c,0xe2);
+// vmwrite(0x600e,0xe4);
+// vmwrite(0x6800,0x99906c7d);
+// vmwrite(0x6802,0x1ff33000);
+// vmwrite(0x6804,0x652126);
+// vmwrite(0x6806,0x0);
+// vmwrite(0x6808,0x0);
+// vmwrite(0x680a,0x0);
+// vmwrite(0x680c,0x0);
+// vmwrite(0x680e,0x0);
+// vmwrite(0x6810,0x0);
+// vmwrite(0x6812,0x0);
+// vmwrite(0x6814,0x1e6ef000);
+// vmwrite(0x6816,0x1ff1ce98);
+// vmwrite(0x6818,0x1fc07018);
+// vmwrite(0x681a,0xd3c0146029a63e30);
+// vmwrite(0x681c,0x1e6eef68);
+// vmwrite(0x681e,0x1e6d72d0);
+// vmwrite(0x6820,0x2);
+// vmwrite(0x6822,0x0);
+// vmwrite(0x6824,0x0);
+// vmwrite(0x6826,0x0);
+// vmwrite(0x6c00,0x80000033);
+// vmwrite(0x6c02,0x1ff33000);
+// vmwrite(0x6c04,0x2668);
+// vmwrite(0x6c06,0x0);
+// vmwrite(0x6c08,0x0);
+// vmwrite(0x6c0a,0x0);
+// vmwrite(0x6c0c,0x1ff1ce98);
+// vmwrite(0x6c0e,0x1fc07018);
+// vmwrite(0x6c10,0x0);
+// vmwrite(0x6c12,0x0);
+// vmwrite(0x6c14,0x1e6ee000);
+// vmwrite(0x6c16,0x1e6d72c3);
+        wprintf(L"vmwrite(0x4012,0x%x);\n", vmread(0x4012));
+        vmwrite(0x4012, vmread(0x4012)&~(1<<15));
+        wprintf(L"vmwrite(0x4012,0x%x);\n", vmread(0x4012));
+        wprintf(L"vmwrite(0x2800, 0x%x);\n", vmread(0x2800));
     wprintf(L"---VMCS CHECK START---\r\n");
 
     enum VMX_error_code is_vmentry_error = VMenterLoadCheckVmControls();
@@ -1539,12 +1818,38 @@ EfiMain (
         wprintf(L"GUEST STATE ERROR %0d\r\n", is_error);
     }
 
-    for(int i; i < vmcs_num; i++){
+    for(int i=0; i < vmcs_num; i++){
         restore_vmcs[i] = vmread(vmcs_index[i]);
-        wprintf(L"vmwrite(0x%x, 0x%x);\n", vmcs_index[i], restore_vmcs[i]);
+        // wprintf(L"vmwrite(0x%x, 0x%x);\n", vmcs_index[i], restore_vmcs[i]);
     }
-
-        wprintf(L"vmwrite(0x6c16, 0x%x);\n", (uint64_t)__host_entry);
+        // vmwrite(0x4824,0x1);
+        wprintf(L"vmwrite(0x4012,0x%x);\n", vmread(0x4012));
+        vmwrite(0x4012, vmread(0x4012)&~(1<<15));
+        wprintf(L"vmwrite(0x4012,0x%x);\n", vmread(0x4012));
+        wprintf(L"vmwrite(0x4000, 0x%x);\n", vmread(0x4000));
+        wprintf(L"vmwrite(0x4824, 0x%x);\n", vmread(0x4824));
+        wprintf(L"vmwrite(0x2, 0x%x);\n", vmread(0x2));
+        vmwrite(0x2,0xff);
+        // vmwrite(0x2,(uint32_t)-1);
+        wprintf(L"vmwrite(0x2, 0x%x);\n", vmread(0x2));
+    //  vmwrite(0x4000,0x7e|1<<7);
+    // vmwrite(0x2806, vmread(0x2806)&(~1<<10));
+    //  vmwrite(VMCS_32BIT_CONTROL_VMENTRY_CONTROLS,vmread(VMCS_32BIT_CONTROL_VMENTRY_CONTROLS)&~(0x200) );
+    // vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO,vmread(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO)|0x80000000|(6 << 8));
+    //   vmwrite(VMCS_32BIT_GUEST_ACTIVITY_STATE, 5);
+      
+    // vmwrite(0x400c, vmread(0x400c)&~0x00000200);
+    // vmwrite(0x401e, vmread(0x401e)|1<<3|1<<13);
+    // vmwrite(0x401e, vmread(0x401e)&~2);
+    // vmwrite(0x4012, vmread(0x4012)&~(1<<15));
+    // vmwrite(0x2014,0);
+    // vmwrite(0x2018,1);
+    // vmwrite(0x2,4);
+    // vmwrite(0x4824,2);
+        wprintf(L"vmwrite(0x440e,0x%x);\n", vmread(0x440e));
+        vmwrite(0x440e, vmread(0x440e)|0xff);
+        wprintf(L"vmwrite(0x440e,0x%x);\n", vmread(0x440e));
+    input_buf[4003] = 0;
 
     if (!__builtin_setjmp(env)) {
 	wprintf(L"Launch a VM\r\r\n");

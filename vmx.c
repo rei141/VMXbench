@@ -468,9 +468,15 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   // VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS not implemented
   if (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS) {
-    vm.vmexec_ctrls1 &= ~(VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS);
-    vmwrite(VMCS_32BIT_CONTROL_PIN_BASED_EXEC_CONTROLS,vm.vmexec_ctrls1);
-
+    if(VMEXIT(VMX_VM_EXEC_CTRL2_SECONDARY_CONTROLS)){
+      vm.vmexec_ctrls3 |= VMX_VM_EXEC_CTRL3_VIRTUAL_INT_DELIVERY;
+      vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS, vm.vmexec_ctrls3);
+      vmwrite(VMCS_16BIT_CONTROL_POSTED_INTERRUPT_VECTOR, vmread(VMCS_16BIT_CONTROL_POSTED_INTERRUPT_VECTOR)&0xff);
+    }else{
+      vm.vmexec_ctrls1 &= ~(VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS);
+      wprintf(L"disable VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS\n");
+      vmwrite(VMCS_32BIT_CONTROL_PIN_BASED_EXEC_CONTROLS,vm.vmexec_ctrls1);
+    }
   }
 #if BX_SUPPORT_VMX >= 2
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING) {
@@ -555,7 +561,9 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
                               VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_REGISTERS |
                               VMX_VM_EXEC_CTRL3_VIRTUAL_INT_DELIVERY);
        vmwrite(VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS,vm.vmexec_ctrls3);
-      //  wprintf(L"VMFAIL: VMCS EXEC CTRL: apic virtualization is enabled without TPR shadow\n");
+       vm.vmexec_ctrls1 &= ~(VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS);
+       vmwrite(VMCS_32BIT_CONTROL_PIN_BASED_EXEC_CONTROLS,vm.vmexec_ctrls1);
+       wprintf(L"VMFAIL: VMCS EXEC CTRL: apic virtualization is enabled without TPR shadow\n");
       //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      }
   }
@@ -603,7 +611,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
        wprintf(L"VMFAIL: VMCS EXEC CTRL: guest VPID == 0\n");
         // return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
         // vmwrite non zero to VMCS_16BIT_CONTROL_VPID
-        vmwrite(VMCS_16BIT_CONTROL_VPID, (0x1));
+        // vmwrite(VMCS_16BIT_CONTROL_VPID, (0x1));
      }
   }
 
@@ -715,6 +723,10 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
    //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      vm.vmexit_ctrls &= VMX_CHECKS_USE_MSR_VMX_VMEXIT_CTRLS_HI;
      vmwrite(VMCS_32BIT_CONTROL_VMEXIT_CONTROLS, vm.vmexit_ctrls);
+  }
+  if (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_PROCESS_POSTED_INTERRUPTS) {
+    vm.vmexit_ctrls |= VMX_VMEXIT_CTRL1_INTA_ON_VMEXIT;
+    vmwrite(VMCS_32BIT_CONTROL_VMEXIT_CONTROLS, vm.vmexit_ctrls);
   }
 
 #if BX_SUPPORT_VMX >= 2
@@ -851,16 +863,16 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
            vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm.vmentry_interr_info);
          }
          // injecting NMI
-         if (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_VIRTUAL_NMI) {
-          VMCS_GUEST_STATE guest;
-          guest.interruptibility_state = vmread(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE);
-           if (guest.interruptibility_state & BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED) {
-             guest.interruptibility_state &= ~BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED;
-             vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE,guest.interruptibility_state);
-             wprintf(L"VMFAIL: VMENTRY injected NMI vector when blocked by NMI in interruptibility state\n", vector);
-            //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
-           }
-         }
+        //  if (vm.vmexec_ctrls1 & VMX_VM_EXEC_CTRL1_VIRTUAL_NMI) {
+        //   VMCS_GUEST_STATE guest;
+        //   guest.interruptibility_state = vmread(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE);
+        //    if (guest.interruptibility_state & BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED) {
+        //      guest.interruptibility_state &= ~BX_VMX_INTERRUPTS_BLOCKED_NMI_BLOCKED;
+        //      vmwrite(VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE,guest.interruptibility_state);
+        //      wprintf(L"VMFAIL: VMENTRY injected NMI vector when blocked by NMI in interruptibility state\n", vector);
+        //     //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+        //    }
+        //  }
 
          break;
 
@@ -892,7 +904,8 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
          {
            wprintf(L"VMFAIL: VMENTRY bad injected event instr length\n");
          //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
-           vm.vmentry_instr_length = 0;
+           vm.vmentry_instr_length &= 0xf;
+           vm.vmentry_instr_length |= 0x1;
            vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INSTRUCTION_LENGTH, vm.vmentry_instr_length);
 
          }
@@ -920,6 +933,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
      }
 
+     if (~(vmread(VMCS_GUEST_CR0)) & VMX_MSR_CR0_FIXED0) {
+        // wprintf(L"VMENTER FAIL: VMCS guest invalid CR0\n");
+      //   return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+        // guest.cr0 |= VMX_MSR_CR0_FIXED0;
+        vmwrite(VMCS_GUEST_CR0, vmread(VMCS_GUEST_CR0) | VMX_MSR_CR0_FIXED0);
+     }
 #if BX_SUPPORT_VMX >= 2
      if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST) {
        unsigned protected_mode_guest = (uint32_t) vmread(VMCS_GUEST_CR0) & BX_CR0_PE_MASK;
@@ -941,7 +960,26 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
         //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
        }
      }
-
+    if(event_type == BX_HARDWARE_EXCEPTION) {
+      if (! (VMX_MSR_VMX_BASIC & (uint64_t)1<<56)) {
+        if((uint32_t) vmread(VMCS_GUEST_CR0) & BX_CR0_PE_MASK){
+          if(vector == 8 || vector == 10 || vector == 11 || vector == 12 || vector == 13 || vector == 14 || vector == 17){
+            push_error = 1;
+            error_code = push_error ? vm.vmentry_excep_err_code : 0;
+            vm.vmentry_interr_info |= (1 << 11);
+            vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm.vmentry_interr_info);
+          }
+        }
+      }
+    }
+    if(!(event_type == BX_HARDWARE_EXCEPTION) || !(uint32_t) vmread(VMCS_GUEST_CR0) & BX_CR0_PE_MASK 
+    || (!(VMX_MSR_VMX_BASIC & (uint64_t)1<<56) && !(vector == 8 || vector == 10 || vector == 11 || vector == 12 || vector == 13 || vector == 14 || vector == 17))) {
+      push_error = 0;
+      error_code = push_error ? vm.vmentry_excep_err_code : 0;
+      vm.vmentry_interr_info &= ~(1 << 11);
+      vmwrite(VMCS_32BIT_CONTROL_VMENTRY_INTERRUPTION_INFO, vm.vmentry_interr_info);
+    }
+    
      if (push_error) {
        if (error_code & 0xffff0000) {
          wprintf(L"VMFAIL: VMENTRY bad error code 0x%08x for injected event %d\n", error_code, vector);
@@ -2145,7 +2183,7 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
     if (! IsValidPageAlignedPhyAddr(vm.vmcs_linkptr)) {
       *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
       wprintf(L"VMFAIL: VMCS link pointer malformed\n");
-      return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
+      // return VMX_VMEXIT_VMENTRY_FAILURE_GUEST_STATE;
     }
 
     uint32_t revision = VMXReadRevisionID((bx_phy_address) vm.vmcs_linkptr);
