@@ -106,34 +106,39 @@ unsigned long genrand_int32(void)
     return y;
 }
 
+#define VMX_MSR_VMX_BASIC (rdmsr(0x480))
+#define VMX_MSR_VMX_PINBASED_CTRLS (rdmsr(0x481))
+#define VMX_MSR_VMX_TRUE_PINBASED_CTRLS (rdmsr(0x48d))
+#define VMX_MSR_VMX_PROCBASED_CTRLS (rdmsr(0x482))
+#define VMX_MSR_VMX_TRUE_PROCBASED_CTRLS (rdmsr(0x48e))
+#define VMX_MSR_VMX_VMEXIT_CTRLS (rdmsr(0x483))
+#define VMX_MSR_VMX_TRUE_VMEXIT_CTRLS (rdmsr(0x48f))
+#define VMX_MSR_VMX_VMENTRY_CTRLS (rdmsr(0x484))
+#define VMX_MSR_VMX_TRUE_VMENTRY_CTRLS (rdmsr(0x490))
+#define VMX_MSR_MISC (rdmsr(0x485))
+#define VMX_MSR_CR0_FIXED0 (rdmsr(0x486))
+// allowed 1-setting in CR0 in VMX mode
+#define VMX_MSR_CR0_FIXED1 (rdmsr(0x487))
+// bit VMXE(13) required to be set in CR4 to enter VMX mode
+#define VMX_MSR_CR4_FIXED0 (rdmsr(0x488))
+// allowed 1-setting in CR0 in VMX mode
+#define VMX_MSR_CR4_FIXED1 (rdmsr(0x489))
+#define VMX_MSR_VMX_PROCBASED_CTRLS2 (rdmsr(0x48b))
+#define VMX_MSR_VMX_EPT_VPID_CAP (rdmsr(0x48c))
+
+static inline uint64_t rdmsr(uint32_t index)
+{
+    uint32_t eax, edx;
+    asm volatile ("rdmsr"
+		  : "=a" (eax), "=d" (edx)
+		  : "c" (index));
+    return ((uint64_t)edx << 32) | eax;
+}
+
 int main(int argc, char** argv) {
-    uint16_t buf[2048];
-
-    // FILE * input = fopen("rand_input", "rb");
-    // fread(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
-    // fclose(input);
-    for(int j = 0; j < 153; j++){
-        char f_name[200];
-        sprintf(f_name,"random_input/input_%d_1",j);
-        for(int i = 0; i< 2048; i++){
-            buf[i] = (uint16_t)genrand_int32();
-        }
-        buf[608] = j;
-        FILE * output = fopen(f_name, "wb");
-        fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), output);
-        fclose(output);
+    for(uint32_t i = 0; i < 16; i++){
+        uint64_t ans = rdmsr(0x480+i);
+        printf("0x%x : 0x%lx\n", 0x480+i,ans);
     }
-    for(int j = 0; j < 153; j++){
-        char f_name[200];
-        sprintf(f_name,"random_input/input_%d_2",j);
-        for(int i = 0; i< 2048; i++){
-            buf[i] = (uint16_t)genrand_int32();
-        }
-        buf[608] = j;
-        FILE * output = fopen(f_name, "wb");
-        fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), output);
-        fclose(output);
-    }
-
     return 0;
 }

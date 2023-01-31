@@ -622,9 +622,11 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE)
     vm.vmfunc_ctrls = vmread(VMCS_64BIT_CONTROL_VMFUNC_CTRLS);
-  else
+  else{
     vm.vmfunc_ctrls = 0;
-
+    vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS, vm.vmfunc_ctrls);
+  }
+  wprintf(L"VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE 0x%x\nvm.vmfunc_ctrls 0x%x\n",vm.vmexec_ctrls3&VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE,vm.vmfunc_ctrls);
   if (vm.vmfunc_ctrls & ~VMX_VMFUNC_CTRL1_SUPPORTED_BITS) {
      wprintf(L"VMFAIL: VMCS VM Functions control reserved bits set\n");
      vm.vmfunc_ctrls &= VMX_VMFUNC_CTRL1_SUPPORTED_BITS;
@@ -2187,7 +2189,7 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
     }
 
     uint32_t revision = VMXReadRevisionID((bx_phy_address) vm.vmcs_linkptr);
-    wprintf(L"vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x\n",vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
+    // wprintf(L"vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x\n",vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
     if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VMCS_SHADOWING) {
       if ((revision & BX_VMCS_SHADOW_BIT_MASK) == 0) {
         *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;

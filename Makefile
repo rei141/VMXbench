@@ -10,11 +10,13 @@ QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 
-QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm -cpu host,+x2apic,vmx=on,umip=off -m 512 \
+QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
+-cpu host,vmx,hv-passthrough=on,+x2apic\
+	-m 1024 \
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
-
+# ,hv_relaxed,hv_vpindex,hv_time
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
 	ENABLE_NESTED=enable_nested

@@ -4,4 +4,4 @@
 # # echo $1 | python3 sub-4.py > tmp
 # addr2line -e ~/nestedFuzz/linux/arch/x86/kvm/kvm-intel.ko -if < "raw_$2"  > "$2_vmx"
 ../create_cov_addr "$1"
-../cov2nested.sh "cov_$1"
+../cov2nested.sh "cov_$1" $2
