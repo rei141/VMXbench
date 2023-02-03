@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 
 
     FILE * input = fopen("afl_input", "rb");
-    fread(ivmshm, sizeof(uint16_t), 2048/sizeof(uint16_t), input);
+    fread(ivmshm, sizeof(uint16_t), 4096/sizeof(uint16_t), input);
     fclose(input);
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
     printf("hello\n");

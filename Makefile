@@ -1,6 +1,6 @@
 CC = x86_64-w64-mingw32-gcc
 CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
-	 -fno-stack-check -fno-stack-protector \
+	 -fno-stack-check -fno-stack-protector -Wno-unused-variable -Wno-unused-but-set-variable\
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
          -e EfiMain \
@@ -11,11 +11,14 @@ QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 
 QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
--cpu host,vmx,hv-passthrough=on,+x2apic\
+-cpu host,vmx,hv-passthrough=off\
 	-m 1024 \
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+# -bios /home/ishii/work/edk2/Build/Ovmf3264/DEBUG_GCC5/FV/OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+# -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+# -cpu host,vmx,hv-passthrough=on
 # ,hv_relaxed,hv_vpindex,hv_time
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
@@ -35,7 +38,7 @@ all: main.efi
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe -r kvm_intel;
 	sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
-	 allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1;
+	 allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1 unrestricted_guest=1;
 	sudo $(QEMU) $(QEMU_OPTS)
 # sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1;
 # sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 nested_early_check=1;

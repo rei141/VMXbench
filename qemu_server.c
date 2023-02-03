@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
     char *flags[] = {
         // "hv-vapic=on,hv-evmcs=on,hv-emsr-bitmap=on,hv-enforce-cpuid=on,hv-passthrough=on,hypervisor=off,+x2apic,vmx=on,umip=off,hv_relaxed=on,hv_vpindex=on,hv_time=on"
         "vmx"
+        ,"hv-passthrough=off"
     // ,"hv-vpindex,hv-synic,hv-tlbflush,hv-ipi,hv-stimer-direct,hv-time,hv-stimer"
     // ,"hv-vapic=on"
     // ,"hv-evmcs=on"
@@ -66,7 +67,8 @@ int main(int argc, char** argv) {
     // ,"kvm-pv-eoi","kvm-pv-ipi","kvm-pv-sched-yield","kvm-pv-tlb-flush","kvm-pv-unhalt","kvm-steal-time"
     // ,"kvmclock","kvmclock","kvmclock-stable-bit","la57","lahf-lm","lbrv","lm","lwp","mca","mce"
     // ,"md-clear","mds-no","misalignsse","mmx","mmxext","monitor","movbe","movdir64b","movdiri"
-    // ,"mpx","msr","mtrr","nodeid-msr","npt","nrip-save","nx","osvw","pae","pat","pause-filter"
+    // ,"mpx"
+    // ,"msr","mtrr","nodeid-msr","npt","nrip-save","nx","osvw","pae","pat","pause-filter"
     // ,"pbe","pcid","pclmulqdq","pcommit","pdcm","pdpe1gb","perfctr-core","perfctr-nb","pfthreshold"
     // ,"pge","phe","phe-en","pks","pku","pmm","pmm-en","pn","pni","popcnt","pschange-mc-no","pse"
     // ,"pse36","rdctl-no","rdpid","rdrand","rdseed","rdtscp","rsba","rtm","sep","serialize","sgx"
@@ -115,7 +117,7 @@ int main(int argc, char** argv) {
     // char cpu_flags[4096] = "host,+x2apic,vmx=on";
 
     char * arg[] = {"/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64","-nodefaults", "-enable-kvm",
-    "-machine", "accel=kvm","-cpu", cpu_flags, "-m", "512",
+    "-machine", "accel=kvm","-cpu", cpu_flags, "-m", "1024",
     "-object", "memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem",
     "-device", "ivshmem-plain,memdev=hostmem",
      "-bios" ,"OVMF.fd", "-hda",\
@@ -126,7 +128,7 @@ int main(int argc, char** argv) {
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
             char *arg1[] = {"/usr/sbin/modprobe","-r", "kvm_intel",NULL};
             char *arg2[] = {"/usr/sbin/modprobe","kvm_intel", 
-            "nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 allow_smaller_maxphyaddr=1 preemption_timer=1"
+            "nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1 allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1 unrestricted_guest=1"
             // "nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1 allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1"
             ,NULL};
     while(1){

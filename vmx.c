@@ -543,7 +543,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
 
        if (! (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_ACCESSES)) {
          uint8_t tpr_shadow = (VMX_Read_Virtual_APIC_VTPR() >> 4) & 0xf;
-         wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
+        //  wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
          if (vm.vm_tpr_threshold > tpr_shadow) {
            wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
            return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
@@ -626,7 +626,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
     vm.vmfunc_ctrls = 0;
     vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS, vm.vmfunc_ctrls);
   }
-  wprintf(L"VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE 0x%x\nvm.vmfunc_ctrls 0x%x\n",vm.vmexec_ctrls3&VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE,vm.vmfunc_ctrls);
+  // wprintf(L"VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE 0x%x\nvm.vmfunc_ctrls 0x%x\n",vm.vmexec_ctrls3&VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE,vm.vmfunc_ctrls);
   if (vm.vmfunc_ctrls & ~VMX_VMFUNC_CTRL1_SUPPORTED_BITS) {
      wprintf(L"VMFAIL: VMCS VM Functions control reserved bits set\n");
      vm.vmfunc_ctrls &= VMX_VMFUNC_CTRL1_SUPPORTED_BITS;
@@ -1465,7 +1465,7 @@ uint32_t VMenterLoadCheckGuestState(uint64_t *qualification)
      }
      bool pe = (guest.cr0 & BX_CR0_PE_MASK) != 0;
      bool pg = (guest.cr0 & BX_CR0_PG_MASK) != 0;
-     wprintf(L"guest cr0 0x%x\nif1 0x%x\nif2 0x%x\n", guest.cr0,(~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))),(pg && !pe) );
+    //  wprintf(L"guest cr0 0x%x\nif1 0x%x\nif2 0x%x\n", guest.cr0,(~guest.cr0 & (VMX_MSR_CR0_FIXED0 & ~(BX_CR0_PE_MASK | BX_CR0_PG_MASK))),(pg && !pe) );
      if (pg && !pe) {
         wprintf(L"VMENTER FAIL: VMCS unrestricted guest CR0.PG without CR0.PE\n");
        vm.vmexec_ctrls3 &= ~(VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST);
@@ -2201,8 +2201,12 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
       revision &= ~BX_VMCS_SHADOW_BIT_MASK;
     }
     uint64_t current_vmcsptr;
-    vmptrst(&current_vmcsptr);
-    wprintf(L"revision 0x%x, 0x%x\n", revision, VMXReadRevisionID((bx_phy_address) current_vmcsptr));
+    if(current_evmcs){
+      current_vmcsptr = (uint64_t)current_evmcs&~(uint64_t)1;
+    }else{
+      vmptrst(&current_vmcsptr);
+    }
+    // wprintf(L"revision 0x%x, 0x%x\n", revision, VMXReadRevisionID((bx_phy_address) current_vmcsptr));
     // if (revision != vmcs_map->get_vmcs_revision_id()) {
     if (revision != VMXReadRevisionID((bx_phy_address) current_vmcsptr)) {
       *qualification = (uint64_t) VMENTER_ERR_GUEST_STATE_LINK_POINTER;
