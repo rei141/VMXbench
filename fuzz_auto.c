@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
     sprintf(f_name,"fuzz_input/%02d_%02d_%02d/input_%02d_%02d_%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour,tm->tm_mon+1, tm->tm_mday,\
     tm->tm_hour, tm->tm_min, tm->tm_sec);
     FILE * record = fopen(f_name,"w");
-    fwrite(ivmshm,sizeof(uint8_t),1400,record);
+    fwrite(ivmshm,sizeof(uint8_t),4096,record);
     fclose(record);
     
     // sem_post(sem);

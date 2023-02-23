@@ -29,8 +29,10 @@
  * This section contains several basic VMX function definitions.
  *************************************************************************** */
 // extern void wprintf (const CHAR16 *format, ...);
+extern struct hv_enlightened_vmcs *current_evmcs;
 
-
+static inline int evmcs_vmwrite(uint64_t encoding, uint64_t value);
+static inline int evmcs_vmread(uint64_t encoding, uint64_t *value);
 typedef struct {
 	uint64_t ptr;
 	uint64_t rsvd;
@@ -56,19 +58,28 @@ static inline void wrmsr(uint32_t index, uint64_t value)
 static inline uint64_t vmread(uint32_t index)
 {
     uint64_t value;
-    asm volatile ("vmread %%rax, %%rdx"
-		  : "=d" (value)
-		  : "a" (index)
-		  : "cc");
+	if(current_evmcs){
+		evmcs_vmread(index, &value);
+	}
+	else{
+		asm volatile ("vmread %%rax, %%rdx"
+			: "=d" (value)
+			: "a" (index)
+			: "cc");
+	}
     return value;
 }
 
 static inline void vmwrite(uint32_t index, uint64_t value)
 {
-    asm volatile ("vmwrite %%rdx, %%rax"
-		  :
-		  : "a" (index), "d" (value)
-		  : "cc", "memory");
+	if(current_evmcs){
+		evmcs_vmwrite(index,value);
+	}else{
+		asm volatile ("vmwrite %%rdx, %%rax"
+			:
+			: "a" (index), "d" (value)
+			: "cc", "memory");
+	}
 }
 
 static inline uint64_t rdtsc(void)
@@ -103,10 +114,14 @@ static inline void vmptrld(uint64_t *arg)
 }
 static inline void vmptrst(uint64_t *arg)
 {
-    asm volatile ("vmptrst %0"
-		  :
-          : "m" (*arg)
-          : "cc");
+	if(current_evmcs){
+    	*arg = (uint64_t)current_evmcs&~((uint64_t)1);
+    }else{
+		asm volatile ("vmptrst %0"
+			:
+			: "m" (*arg)
+			: "cc");
+	}
 }
 static inline void invept(uint64_t type, const invept_t *i)
 {
@@ -1614,7 +1629,6 @@ enum vmcs_field {
 	HOST_RIP                        = 0x00006c16,
 };
 #define BIT(x) (1 << (x))
-extern struct hv_enlightened_vmcs *current_evmcs;
 #define u8 uint8_t
 #define u16 uint16_t
 #define u32 uint32_t
@@ -1834,6 +1848,406 @@ struct hv_enlightened_vmcs {
 #define HV_VMX_ENLIGHTENED_CLEAN_FIELD_HOST_GRP1		BIT(14)
 #define HV_VMX_ENLIGHTENED_CLEAN_FIELD_ENLIGHTENMENTSCONTROL	BIT(15)
 #define HV_VMX_ENLIGHTENED_CLEAN_FIELD_ALL			0xFFFF
+
+static inline int evmcs_vmread(uint64_t encoding, uint64_t *value)
+{
+	switch (encoding) {
+	case GUEST_RIP:
+		*value = current_evmcs->guest_rip;
+		break;
+	case GUEST_RSP:
+		*value = current_evmcs->guest_rsp;
+		break;
+	case GUEST_RFLAGS:
+		*value = current_evmcs->guest_rflags;
+		break;
+	case HOST_IA32_PAT:
+		*value = current_evmcs->host_ia32_pat;
+		break;
+	case HOST_IA32_EFER:
+		*value = current_evmcs->host_ia32_efer;
+		break;
+	case HOST_CR0:
+		*value = current_evmcs->host_cr0;
+		break;
+	case HOST_CR3:
+		*value = current_evmcs->host_cr3;
+		break;
+	case HOST_CR4:
+		*value = current_evmcs->host_cr4;
+		break;
+	case HOST_IA32_SYSENTER_ESP:
+		*value = current_evmcs->host_ia32_sysenter_esp;
+		break;
+	case HOST_IA32_SYSENTER_EIP:
+		*value = current_evmcs->host_ia32_sysenter_eip;
+		break;
+	case HOST_RIP:
+		*value = current_evmcs->host_rip;
+		break;
+	case IO_BITMAP_A:
+		*value = current_evmcs->io_bitmap_a;
+		break;
+	case IO_BITMAP_B:
+		*value = current_evmcs->io_bitmap_b;
+		break;
+	case MSR_BITMAP:
+		*value = current_evmcs->msr_bitmap;
+		break;
+	case GUEST_ES_BASE:
+		*value = current_evmcs->guest_es_base;
+		break;
+	case GUEST_CS_BASE:
+		*value = current_evmcs->guest_cs_base;
+		break;
+	case GUEST_SS_BASE:
+		*value = current_evmcs->guest_ss_base;
+		break;
+	case GUEST_DS_BASE:
+		*value = current_evmcs->guest_ds_base;
+		break;
+	case GUEST_FS_BASE:
+		*value = current_evmcs->guest_fs_base;
+		break;
+	case GUEST_GS_BASE:
+		*value = current_evmcs->guest_gs_base;
+		break;
+	case GUEST_LDTR_BASE:
+		*value = current_evmcs->guest_ldtr_base;
+		break;
+	case GUEST_TR_BASE:
+		*value = current_evmcs->guest_tr_base;
+		break;
+	case GUEST_GDTR_BASE:
+		*value = current_evmcs->guest_gdtr_base;
+		break;
+	case GUEST_IDTR_BASE:
+		*value = current_evmcs->guest_idtr_base;
+		break;
+	case TSC_OFFSET:
+		*value = current_evmcs->tsc_offset;
+		break;
+	case VIRTUAL_APIC_PAGE_ADDR:
+		*value = current_evmcs->virtual_apic_page_addr;
+		break;
+	case VMCS_LINK_POINTER:
+		*value = current_evmcs->vmcs_link_pointer;
+		break;
+	case GUEST_IA32_DEBUGCTL:
+		*value = current_evmcs->guest_ia32_debugctl;
+		break;
+	case GUEST_IA32_PAT:
+		*value = current_evmcs->guest_ia32_pat;
+		break;
+	case GUEST_IA32_EFER:
+		*value = current_evmcs->guest_ia32_efer;
+		break;
+	case GUEST_PDPTR0:
+		*value = current_evmcs->guest_pdptr0;
+		break;
+	case GUEST_PDPTR1:
+		*value = current_evmcs->guest_pdptr1;
+		break;
+	case GUEST_PDPTR2:
+		*value = current_evmcs->guest_pdptr2;
+		break;
+	case GUEST_PDPTR3:
+		*value = current_evmcs->guest_pdptr3;
+		break;
+	case GUEST_PENDING_DBG_EXCEPTIONS:
+		*value = current_evmcs->guest_pending_dbg_exceptions;
+		break;
+	case GUEST_SYSENTER_ESP:
+		*value = current_evmcs->guest_sysenter_esp;
+		break;
+	case GUEST_SYSENTER_EIP:
+		*value = current_evmcs->guest_sysenter_eip;
+		break;
+	case CR0_GUEST_HOST_MASK:
+		*value = current_evmcs->cr0_guest_host_mask;
+		break;
+	case CR4_GUEST_HOST_MASK:
+		*value = current_evmcs->cr4_guest_host_mask;
+		break;
+	case CR0_READ_SHADOW:
+		*value = current_evmcs->cr0_read_shadow;
+		break;
+	case CR4_READ_SHADOW:
+		*value = current_evmcs->cr4_read_shadow;
+		break;
+	case GUEST_CR0:
+		*value = current_evmcs->guest_cr0;
+		break;
+	case GUEST_CR3:
+		*value = current_evmcs->guest_cr3;
+		break;
+	case GUEST_CR4:
+		*value = current_evmcs->guest_cr4;
+		break;
+	case GUEST_DR7:
+		*value = current_evmcs->guest_dr7;
+		break;
+	case HOST_FS_BASE:
+		*value = current_evmcs->host_fs_base;
+		break;
+	case HOST_GS_BASE:
+		*value = current_evmcs->host_gs_base;
+		break;
+	case HOST_TR_BASE:
+		*value = current_evmcs->host_tr_base;
+		break;
+	case HOST_GDTR_BASE:
+		*value = current_evmcs->host_gdtr_base;
+		break;
+	case HOST_IDTR_BASE:
+		*value = current_evmcs->host_idtr_base;
+		break;
+	case HOST_RSP:
+		*value = current_evmcs->host_rsp;
+		break;
+	case EPT_POINTER:
+		*value = current_evmcs->ept_pointer;
+		break;
+	case GUEST_BNDCFGS:
+		*value = current_evmcs->guest_bndcfgs;
+		break;
+	case XSS_EXIT_BITMAP:
+		*value = current_evmcs->xss_exit_bitmap;
+		break;
+	case GUEST_PHYSICAL_ADDRESS:
+		*value = current_evmcs->guest_physical_address;
+		break;
+	case EXIT_QUALIFICATION:
+		*value = current_evmcs->exit_qualification;
+		break;
+	case GUEST_LINEAR_ADDRESS:
+		*value = current_evmcs->guest_linear_address;
+		break;
+	case VM_EXIT_MSR_STORE_ADDR:
+		*value = current_evmcs->vm_exit_msr_store_addr;
+		break;
+	case VM_EXIT_MSR_LOAD_ADDR:
+		*value = current_evmcs->vm_exit_msr_load_addr;
+		break;
+	case VM_ENTRY_MSR_LOAD_ADDR:
+		*value = current_evmcs->vm_entry_msr_load_addr;
+		break;
+	case CR3_TARGET_VALUE0:
+		*value = current_evmcs->cr3_target_value0;
+		break;
+	case CR3_TARGET_VALUE1:
+		*value = current_evmcs->cr3_target_value1;
+		break;
+	case CR3_TARGET_VALUE2:
+		*value = current_evmcs->cr3_target_value2;
+		break;
+	case CR3_TARGET_VALUE3:
+		*value = current_evmcs->cr3_target_value3;
+		break;
+	case TPR_THRESHOLD:
+		*value = current_evmcs->tpr_threshold;
+		break;
+	case GUEST_INTERRUPTIBILITY_INFO:
+		*value = current_evmcs->guest_interruptibility_info;
+		break;
+	case CPU_BASED_VM_EXEC_CONTROL:
+		*value = current_evmcs->cpu_based_vm_exec_control;
+		break;
+	case EXCEPTION_BITMAP:
+		*value = current_evmcs->exception_bitmap;
+		break;
+	case VM_ENTRY_CONTROLS:
+		*value = current_evmcs->vm_entry_controls;
+		break;
+	case VM_ENTRY_INTR_INFO_FIELD:
+		*value = current_evmcs->vm_entry_intr_info_field;
+		break;
+	case VM_ENTRY_EXCEPTION_ERROR_CODE:
+		*value = current_evmcs->vm_entry_exception_error_code;
+		break;
+	case VM_ENTRY_INSTRUCTION_LEN:
+		*value = current_evmcs->vm_entry_instruction_len;
+		break;
+	case HOST_IA32_SYSENTER_CS:
+		*value = current_evmcs->host_ia32_sysenter_cs;
+		break;
+	case PIN_BASED_VM_EXEC_CONTROL:
+		*value = current_evmcs->pin_based_vm_exec_control;
+		break;
+	case VM_EXIT_CONTROLS:
+		*value = current_evmcs->vm_exit_controls;
+		break;
+	case SECONDARY_VM_EXEC_CONTROL:
+		*value = current_evmcs->secondary_vm_exec_control;
+		break;
+	case GUEST_ES_LIMIT:
+		*value = current_evmcs->guest_es_limit;
+		break;
+	case GUEST_CS_LIMIT:
+		*value = current_evmcs->guest_cs_limit;
+		break;
+	case GUEST_SS_LIMIT:
+		*value = current_evmcs->guest_ss_limit;
+		break;
+	case GUEST_DS_LIMIT:
+		*value = current_evmcs->guest_ds_limit;
+		break;
+	case GUEST_FS_LIMIT:
+		*value = current_evmcs->guest_fs_limit;
+		break;
+	case GUEST_GS_LIMIT:
+		*value = current_evmcs->guest_gs_limit;
+		break;
+	case GUEST_LDTR_LIMIT:
+		*value = current_evmcs->guest_ldtr_limit;
+		break;
+	case GUEST_TR_LIMIT:
+		*value = current_evmcs->guest_tr_limit;
+		break;
+	case GUEST_GDTR_LIMIT:
+		*value = current_evmcs->guest_gdtr_limit;
+		break;
+	case GUEST_IDTR_LIMIT:
+		*value = current_evmcs->guest_idtr_limit;
+		break;
+	case GUEST_ES_AR_BYTES:
+		*value = current_evmcs->guest_es_ar_bytes;
+		break;
+	case GUEST_CS_AR_BYTES:
+		*value = current_evmcs->guest_cs_ar_bytes;
+		break;
+	case GUEST_SS_AR_BYTES:
+		*value = current_evmcs->guest_ss_ar_bytes;
+		break;
+	case GUEST_DS_AR_BYTES:
+		*value = current_evmcs->guest_ds_ar_bytes;
+		break;
+	case GUEST_FS_AR_BYTES:
+		*value = current_evmcs->guest_fs_ar_bytes;
+		break;
+	case GUEST_GS_AR_BYTES:
+		*value = current_evmcs->guest_gs_ar_bytes;
+		break;
+	case GUEST_LDTR_AR_BYTES:
+		*value = current_evmcs->guest_ldtr_ar_bytes;
+		break;
+	case GUEST_TR_AR_BYTES:
+		*value = current_evmcs->guest_tr_ar_bytes;
+		break;
+	case GUEST_ACTIVITY_STATE:
+		*value = current_evmcs->guest_activity_state;
+		break;
+	case GUEST_SYSENTER_CS:
+		*value = current_evmcs->guest_sysenter_cs;
+		break;
+	case VM_INSTRUCTION_ERROR:
+		*value = current_evmcs->vm_instruction_error;
+		break;
+	case VM_EXIT_REASON:
+		*value = current_evmcs->vm_exit_reason;
+		break;
+	case VM_EXIT_INTR_INFO:
+		*value = current_evmcs->vm_exit_intr_info;
+		break;
+	case VM_EXIT_INTR_ERROR_CODE:
+		*value = current_evmcs->vm_exit_intr_error_code;
+		break;
+	case IDT_VECTORING_INFO_FIELD:
+		*value = current_evmcs->idt_vectoring_info_field;
+		break;
+	case IDT_VECTORING_ERROR_CODE:
+		*value = current_evmcs->idt_vectoring_error_code;
+		break;
+	case VM_EXIT_INSTRUCTION_LEN:
+		*value = current_evmcs->vm_exit_instruction_len;
+		break;
+	case VMX_INSTRUCTION_INFO:
+		*value = current_evmcs->vmx_instruction_info;
+		break;
+	case PAGE_FAULT_ERROR_CODE_MASK:
+		*value = current_evmcs->page_fault_error_code_mask;
+		break;
+	case PAGE_FAULT_ERROR_CODE_MATCH:
+		*value = current_evmcs->page_fault_error_code_match;
+		break;
+	case CR3_TARGET_COUNT:
+		*value = current_evmcs->cr3_target_count;
+		break;
+	case VM_EXIT_MSR_STORE_COUNT:
+		*value = current_evmcs->vm_exit_msr_store_count;
+		break;
+	case VM_EXIT_MSR_LOAD_COUNT:
+		*value = current_evmcs->vm_exit_msr_load_count;
+		break;
+	case VM_ENTRY_MSR_LOAD_COUNT:
+		*value = current_evmcs->vm_entry_msr_load_count;
+		break;
+	case HOST_ES_SELECTOR:
+		*value = current_evmcs->host_es_selector;
+		break;
+	case HOST_CS_SELECTOR:
+		*value = current_evmcs->host_cs_selector;
+		break;
+	case HOST_SS_SELECTOR:
+		*value = current_evmcs->host_ss_selector;
+		break;
+	case HOST_DS_SELECTOR:
+		*value = current_evmcs->host_ds_selector;
+		break;
+	case HOST_FS_SELECTOR:
+		*value = current_evmcs->host_fs_selector;
+		break;
+	case HOST_GS_SELECTOR:
+		*value = current_evmcs->host_gs_selector;
+		break;
+	case HOST_TR_SELECTOR:
+		*value = current_evmcs->host_tr_selector;
+		break;
+	case GUEST_ES_SELECTOR:
+		*value = current_evmcs->guest_es_selector;
+		break;
+	case GUEST_CS_SELECTOR:
+		*value = current_evmcs->guest_cs_selector;
+		break;
+	case GUEST_SS_SELECTOR:
+		*value = current_evmcs->guest_ss_selector;
+		break;
+	case GUEST_DS_SELECTOR:
+		*value = current_evmcs->guest_ds_selector;
+		break;
+	case GUEST_FS_SELECTOR:
+		*value = current_evmcs->guest_fs_selector;
+		break;
+	case GUEST_GS_SELECTOR:
+		*value = current_evmcs->guest_gs_selector;
+		break;
+	case GUEST_LDTR_SELECTOR:
+		*value = current_evmcs->guest_ldtr_selector;
+		break;
+	case GUEST_TR_SELECTOR:
+		*value = current_evmcs->guest_tr_selector;
+		break;
+	case VIRTUAL_PROCESSOR_ID:
+		*value = current_evmcs->virtual_processor_id;
+		break;
+	case HOST_IA32_PERF_GLOBAL_CTRL:
+		*value = current_evmcs->host_ia32_perf_global_ctrl;
+		break;
+	case GUEST_IA32_PERF_GLOBAL_CTRL:
+		*value = current_evmcs->guest_ia32_perf_global_ctrl;
+		break;
+	case ENCLS_EXITING_BITMAP:
+		*value = current_evmcs->encls_exiting_bitmap;
+		break;
+	case TSC_MULTIPLIER:
+		*value = current_evmcs->tsc_multiplier;
+		break;
+	default: return 1;
+	}
+
+	return 0;
+}
+
 static inline int evmcs_vmwrite(uint64_t encoding, uint64_t value)
 {
 	switch (encoding) {
