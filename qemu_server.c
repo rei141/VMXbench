@@ -162,11 +162,11 @@ int main(int argc, char** argv) {
         strcat(cpu_flags,",");
         strcat(cpu_flags,"hv-passthrough=off");
     }
-    else{
-        strcat(cpu_flags,",");
-        strcat(cpu_flags,"hv-passthrough=on");
-        // printf("!!! hv on\n");
-    }
+    // else{
+    //     strcat(cpu_flags,",");
+    //     strcat(cpu_flags,"hv-passthrough=on");
+    //     // printf("!!! hv on\n");
+    // }
     printf("%s\n", cpu_flags);
     // printf("%s\n", cpu_flags);
     // char cpu_flags[4096] = "host,+x2apic,vmx=on";
@@ -210,9 +210,9 @@ int main(int argc, char** argv) {
             ,"enable_shadow_vmcs=0"
             ,"enlightened_vmcs=1"
             ,"enlightened_vmcs=0"
-            ,"ept=1"
+            ,"ept=0" // 0224 ubsan
             ,"ept=0"
-            ,"eptad=1"
+            ,"eptad=0" // 0224 ubsan
             ,"eptad=0"
             ,"error_on_inconsistent_vmcs_config=1"
             ,"error_on_inconsistent_vmcs_config=0"
