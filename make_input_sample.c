@@ -114,11 +114,25 @@ int main(int argc, char** argv) {
     // fclose(input);
     for(int j = 0; j < 153; j++){
         char f_name[200];
+        sprintf(f_name,"random_input/input_%03d_0",j);
+        for(int i = 0; i< 2048; i++){
+            buf[i] = (uint16_t)genrand_int32();
+        }
+        buf[640] = j;
+        buf[648] = 0;
+        FILE * output = fopen(f_name, "wb");
+        fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), output);
+        fclose(output);
+    }
+    for(int j = 0; j < 153; j++){
+        char f_name[200];
         sprintf(f_name,"random_input/input_%03d_1",j);
         for(int i = 0; i< 2048; i++){
             buf[i] = (uint16_t)genrand_int32();
         }
         buf[640] = j;
+        buf[648] = 1;
+
         FILE * output = fopen(f_name, "wb");
         fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), output);
         fclose(output);
@@ -130,6 +144,8 @@ int main(int argc, char** argv) {
             buf[i] = (uint16_t)genrand_int32();
         }
         buf[640] = j;
+        buf[648] = 1;
+
         FILE * output = fopen(f_name, "wb");
         fwrite(buf, sizeof(uint16_t), 4096/sizeof(uint16_t), output);
         fclose(output);

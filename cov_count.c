@@ -4,8 +4,8 @@
 #include <dirent.h>
 #include <string.h>
 
-#define MAX_KVM_INTEL 0xc0000
-#define MAX_KVM 0x187000
+#define MAX_KVM_INTEL 0xc7000
+#define MAX_KVM 0x1b2000
 uint8_t cov[MAX_KVM];
 int main (void){
     // FILE * f = 

@@ -80,19 +80,20 @@ int main(int argc, char** argv) {
     ,"svme-addr-chk","syscall","taa-no","tbm","tce","tm","tm2","topoext","tsc","tsc-adjust","tsc-deadline"
     ,"tsc-scale","tsx-ctrl","tsx-ldtrk","umip","v-vmsave-vmload","vaes","vgif","virt-ssbd"
     ,"vmcb-clean"
-    ,"vme","vmx-activity-hlt","vmx-activity-shutdown","vmx-activity-wait-sipi","vmx-apicv-register"
+    // ,"vme"
+    ,"vmx-activity-hlt","vmx-activity-shutdown","vmx-activity-wait-sipi","vmx-apicv-register"
     // ,"vmx-apicv-vid"
     ,"vmx-apicv-x2apic"
     ,"vmx-apicv-xapic"
     ,"vmx-cr3-load-noexit","vmx-cr3-store-noexit"
     ,"vmx-cr8-load-exit","vmx-cr8-store-exit","vmx-desc-exit","vmx-encls-exit"
-    ,"vmx-entry-ia32e-mode,vmx-eptad"
+    // ,"vmx-entry-ia32e-mode=off,vmx-eptad"
     ,"vmx-entry-load-bndcfgs","vmx-entry-load-efer","vmx-entry-load-pat","vmx-entry-load-perf-global-ctrl"
     ,"vmx-entry-load-pkrs","vmx-entry-load-rtit-ctl","vmx-entry-noload-debugctl"
     // ,"vmx-ept"
     ,"vmx-ept-1gb"
     ,"vmx-ept-2mb","vmx-ept-advanced-exitinfo","vmx-ept-execonly"
-    ,"vmx-eptad,vmx-entry-ia32e-mode"
+    // ,"vmx-eptad=off,vmx-entry-ia32e-mode"
     ,"vmx-eptp-switching"
     // ,"vmx-exit-ack-intr"
     ,"vmx-exit-clear-bndcfgs","vmx-exit-clear-rtit-ctl","vmx-exit-load-efer"
@@ -136,7 +137,7 @@ int main(int argc, char** argv) {
     };
     int size = sizeof(flags) / sizeof(flags[0]);
     // host,+x2apic,vmx=on
-    for(int i = 0; i < 10; i+=1){
+    for(int i = 0; i < 1; i+=1){
         if(i>=size) break;
         // if(ivmshm[])
         // if(ivmshm[1000+i]%size){
@@ -162,11 +163,11 @@ int main(int argc, char** argv) {
         strcat(cpu_flags,",");
         strcat(cpu_flags,"hv-passthrough=off");
     }
-    // else{
-    //     strcat(cpu_flags,",");
-    //     strcat(cpu_flags,"hv-passthrough=on");
-    //     // printf("!!! hv on\n");
-    // }
+    else{
+        strcat(cpu_flags,",");
+        strcat(cpu_flags,"hv-passthrough=on");
+        // printf("!!! hv on\n");
+    }
     printf("%s\n", cpu_flags);
     // printf("%s\n", cpu_flags);
     // char cpu_flags[4096] = "host,+x2apic,vmx=on";
@@ -210,9 +211,9 @@ int main(int argc, char** argv) {
             ,"enable_shadow_vmcs=0"
             ,"enlightened_vmcs=1"
             ,"enlightened_vmcs=0"
-            ,"ept=0" // 0224 ubsan
-            ,"ept=0"
-            ,"eptad=0" // 0224 ubsan
+            ,"ept=1" // 0224 ubsan
+            ,"ept=1"
+            ,"eptad=1" // 0224 ubsan
             ,"eptad=0"
             ,"error_on_inconsistent_vmcs_config=1"
             ,"error_on_inconsistent_vmcs_config=0"

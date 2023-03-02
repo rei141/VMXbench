@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
             ivmshm[4000] = 0;
             ivmshm[4002] = 1; // kill qemu
             msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-            sleep(6);
+            sleep(7);
             break;
         }
     }

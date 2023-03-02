@@ -548,7 +548,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
         //  wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
          if (vm.vm_tpr_threshold > tpr_shadow) {
            wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
-           return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+          //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
          }
        }
      }

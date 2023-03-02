@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
-#define MAX_KVM 0x187000
+#define MAX_KVM 0x1b2000
 uint8_t cov[MAX_KVM];
 int main (int argc, char * argv[]){
     // FILE * f = 
