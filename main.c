@@ -1121,7 +1121,65 @@ void host_entry(uint64_t arg)
         // if (1) {
         // while(1){
         input_buf[4001] = 1;
+// {
+//             invept_t inv;
+//         uint64_t eptp = (uint64_t)pml4_table;
+//         uint64_t type = 1;
+//         inv.rsvd = 0;
+//         inv.ptr = wvalue;
+//         if (input_buf[1] % 2 == 0)
+//         {
+//             inv.ptr = 0x3fffffffe000|0x5e;
+//             inv.ptr = eptp|0x20;
+//             inv.ptr = eptp|0x5e;
+//         }
+//         i.ptr = wvalue;
+//         if (input_buf[3] % 2)
+//             invept((uint64_t)type,&inv);
+//             inv.rsvd = 0x3fffffffe000;
+//         inv.ptr = (uint64_t)0;
+//         if (input_buf[4] % 2)
+//             invvpid(1,&inv);
+// }
+		// asm volatile ("vmread %1, %0"
+		// 	: "=m" (*v)
+		// 	: "a" (aa)
+		// 	: "cc");
+int error;
+// uint64_t v=0;
+uint64_t *v = (uint64_t *)0x3fffffffe000;
+        // asm volatile("vmclear %1"
+        //              : "=@ccbe"(error)
+        //              : "m"(*v));
+// vmptrld(v);
+// vmptrst(v);
+// uint64_t *v = (uint64_t *)0xffffffffe000;
+// v=0xff;
+uint64_t aa =  0x4000;
+		// asm volatile ("vmwrite %1, %%rax"
+		// 	: 
+		// 	: "a" (aa),"m" (*v)
+		// 	: "cc");
+		// asm volatile ("vmread %%rax, %0"
+		// 	: "=m" (*v)
+		// 	: "a" (aa)
+		// 	: "cc");
+        //     wprintf(L" mem vmread(0x4000, %x);", v);
+// uint64_t aa =  0x4000;
 
+// 		asm volatile ("vmread %1, %0"
+// 			: "=m" (v)
+// 			: "a" (aa)
+// 			: "cc");
+// uint64_t aaa = 0x3fffffffe000;
+//     asm volatile ("vmxon %1" : "=@ccbe" (error) : "m" (aaa));
+//         // asm volatile("vmptrld %1"
+//         //              : "=@ccbe"(error)
+//         //              : "m"(aaa));
+//     asm volatile ("vmclear %0"
+// 		  : 
+//           : "m"(aaa)
+//           : "cc");
         vmwrite(0x2, loop_count);
         is_input_ready = input_buf[4000];
         while (!is_input_ready)
@@ -1599,7 +1657,7 @@ void host_entry(uint64_t arg)
         {
             if (windex == 0x400e || windex == 0x681c || windex == 0x681e || windex == 0x6816 || windex == 0x681E || windex == 0x2800 || windex == 0x2000 || windex == 0x2002 || windex == 0x2004 || windex == 0x2006 || windex == 0x2008 || windex == 0x200a || windex == 0x200c || windex == 0x200e || windex == 0x2012 || windex == 0x2014 || windex == 0x2016 || windex == 0x2024 || windex == 0x2026 || windex == 0x2028 || windex == 0x202a)
             {
-                ;
+                vmwrite(windex, 0x3fffffffe000);
             }
             else
             {
@@ -1820,7 +1878,19 @@ _Noreturn void guest_entry(void)
         // );
         // vmread(0xffffffff);
         // vmwrite(0xffffffff,0);
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+uint64_t *v = (uint64_t *)0x3fffffffe001;
+uint64_t aa =  0x4000;
 
+		// asm volatile ("vmread %1, %0"
+		// 	: "=m" (v)
+		// 	: "a" (aa)
+		// 	: "cc");
+		// asm volatile ("vmwrite %1, %0"
+		// 	: 
+		// 	: "a" (aa),"m" (v)
+		// 	: "cc");
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // asm volatile ("vmlaunch"); // 61
         // uint64_t zero;
         // asm volatile ("rdseed %0" : "+c" (zero) : : "%rax"); // 61

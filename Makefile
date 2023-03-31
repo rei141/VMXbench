@@ -50,7 +50,7 @@ all: main.efi
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe -r kvm_intel;
 	sudo modprobe kvm_intel nested_early_check=0 nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
-		allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1,pt_mode=1;
+		allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 pt_mode=1;
 	sudo $(QEMU) $(QEMU_OPTS)
 
 #sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1
