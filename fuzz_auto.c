@@ -15,7 +15,7 @@
 // #include <process.h>
 #include <sys/mman.h>
 
-
+#define DEBUG_PRINT(...)     printf("%s(%d) %s:", __FILE__, __LINE__, __func__), printf(__VA_ARGS__)
 int main(int argc, char** argv) {
     int ret;
 
@@ -89,26 +89,60 @@ int main(int argc, char** argv) {
     // sem_post(sem);
     // ivmshm[3000]=0xdead;
     // memcpy(ivmshm,)
+// DEBUG_PRINT("\n");
     int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if (bitmap_fd == -1)
         perror("open"), exit(1);
+    int err = ftruncate(bitmap_fd, 65536);
+    if(err == -1){
+        perror("ftruncate"), exit(1);
+    }
+// DEBUG_PRINT("\n");
     uint8_t * afl_bitmap = (uint8_t *)mmap(NULL, 65536,
                                     PROT_READ | PROT_WRITE, MAP_SHARED, bitmap_fd, 0);
+// DEBUG_PRINT("\n");
     if ((void *)afl_bitmap == MAP_FAILED)
         perror("mmap"), exit(1);
-    memset(afl_bitmap,0,65536);
+// DEBUG_PRINT("\n");
+    memset(afl_bitmap,1,65536);
 
+// DEBUG_PRINT("\n");
     // printf("a"); 
     ivmshm[4001] = 0; // write ok
     ivmshm[4000] = 1; // write done
+    msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
+
+    int qemu_ready = ivmshm[4004]; // qemu_ready
+    int cnt=0;
+    while(1){
+        cnt++;
+        if (qemu_ready != 0){
+            break;
+        }
+        usleep(100);
+        qemu_ready = ivmshm[4004];
+        if(cnt > 70000){
+            ivmshm[4000] = 0;
+            ivmshm[4002] = 1; // kill qemu
+            ivmshm[4004] = 0;
+            msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
+            // sleep(7);
+            printf("qemu freeze\n");
+            exit(0);
+        }
+    }
+
+    printf("qemu_ready ok!\n");
+
     uint16_t flag= ivmshm[4001];
 
     // printf("hello\n");
-    int cnt=0;
+    cnt=0;
     while(1){
         cnt++;
         flag = ivmshm[4001];
         if(flag == 1){
+            printf("ivmshm[4001] = 1\n");
             break;
         }
         usleep(100);
@@ -120,11 +154,16 @@ int main(int argc, char** argv) {
             // ret = system(qemu_command);
             ivmshm[4000] = 0;
             ivmshm[4002] = 1; // kill qemu
+            // msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
+
+            ivmshm[4004] = 0;
             msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-            sleep(7);
+            // sleep(7);
             break;
         }
     }
+    ivmshm[4000] = 0;
+    ivmshm[4001] = 0; // write ok
     // ivmshm[4001] = 0;
 
     // int bitmap_fd = shm_open("afl_bitmap", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
@@ -139,17 +178,17 @@ int main(int argc, char** argv) {
     //     perror("mmap"), exit(1);
 
     if (afl_shm_id_str != NULL) {
-    memcpy(afl_area_ptr,afl_bitmap,65536);
-    shmdt(afl_area_ptr);
+        memcpy(afl_area_ptr,afl_bitmap,65536);
+        shmdt(afl_area_ptr);
     }
     // if (munmap(afl_bitmap, 65536))
     //     perror("munmap"), exit(1);
     // memset(afl_bitmap,0,65536);
-    close(fd);
-    close(bitmap_fd);
     if (munmap(ivmshm-6, 1024*1024))
         perror("munmap"), exit(1);
     if (munmap(afl_bitmap, 65536))
         perror("munmap"), exit(1);
+    close(fd);
+    close(bitmap_fd);
     return 0;
 }

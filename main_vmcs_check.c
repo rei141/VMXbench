@@ -310,6 +310,13 @@ typedef struct {
 	uint64_t ptr;
 	uint64_t rsvd;
 } invept_t;
+
+typedef struct {
+	uint64_t vpid : 16;
+	uint64_t rsvd : 48;
+	uint64_t gva;
+} invvpid_t;
+
 static inline void invept(uint64_t type, const invept_t *i)
 {
     asm volatile (".byte 0x66, 0x0f, 0x38, 0x80, 0x0A"
@@ -317,7 +324,7 @@ static inline void invept(uint64_t type, const invept_t *i)
 		  : "c" (type), "d" (i)
 		  : "cc", "memory");
 }
-static inline void invvpid(uint64_t type, const invept_t *i)
+static inline void invvpid(uint64_t type, const invvpid_t *i)
 {
     asm volatile (".byte 0x66, 0x0f, 0x38, 0x81, 0x0A"
 		  :
