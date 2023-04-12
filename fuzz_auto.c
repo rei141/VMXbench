@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
     if ((void *)afl_bitmap == MAP_FAILED)
         perror("mmap"), exit(1);
 // DEBUG_PRINT("\n");
-    memset(afl_bitmap,1,65536);
+    memset(afl_bitmap,0,65536);
 
 // DEBUG_PRINT("\n");
     // printf("a"); 
