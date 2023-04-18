@@ -448,25 +448,31 @@ void exec_io(){
 }
 
 void exec_rdmsr(){
-    uint64_t index = get32b(index_count);
+    uint32_t index = msr_table[get32b(index_count)%MSR_TABLE_SIZE];
     index_count += 2;
     if(input_buf[index_count++]%2){
-        asm volatile("rdmsr" ::"c"(index & 0x1FFF));
+        asm volatile("rdmsr" ::"c"(index));
     }
     else{
-        asm volatile("rdmsr" ::"c"(0xC0000000 | (index & 0x1FFF)));
+        index = get32b(index_count);
+        index_count += 2;
+        asm volatile("rdmsr" ::"c"(index));
     }
 }
 void exec_wrmsr(){
-    uint64_t index = get32b(index_count);
+    uint32_t index = msr_table[get32b(index_count)%MSR_TABLE_SIZE];
     index_count += 2;
     uint64_t value = get64b(index_count);
     index_count += 4;
+
     if(input_buf[index_count++]%2){
-        asm volatile("wrmsr" ::"c"(index & 0x1FFF), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
+        asm volatile("wrmsr" ::"c"(index), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
     }
     else{
-        asm volatile("wrmsr" ::"c"(0xC0000000 | (index & 0x1FFF)), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
+        index = get32b(index_count);
+        index_count += 2;
+        asm volatile("wrmsr" ::"c"(index), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
+        // asm volatile("wrmsr" ::"c"(0xC0000000 | (index & 0x1FFF)), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
     }
 }
 void exec_mwait(){
@@ -1207,8 +1213,13 @@ uint64_t aa =  0x4000;
             if (windex == 0x4826)
             {
                 // wvalue = 1;
-                // wvalue = wvalue%(BX_ACTIVITY_STATE_MWAIT_IF+1);
+                wvalue = wvalue%(BX_ACTIVITY_STATE_MWAIT_IF+1);
                 // wvalue = (wvalue == 1 || wvalue == 3 ? 0 : wvalue);
+            }
+            if (windex == 0x482e){
+                if((wvalue & 0x3)== 0){
+                    wvalue = 0;
+                }
             }
             if (windex == 0x4824)
             {
@@ -1598,8 +1609,20 @@ struct fpu_state_buffer
     char buffer[];
 };
 int l2_count;
+struct xsave {
+    uint8_t legacy_area[512];
+    union {
+        struct {
+            uint64_t xstate_bv;
+            uint64_t xcomp_bv;
+        };
+        uint8_t header_area[64];
+    };
+    uint8_t extended_area[];
+};
 _Noreturn void guest_entry(void)
 {
+// rdmsr(0x48a);
     // vmread(0xffffffff);
     // vmread(0x20000);
 
@@ -1835,6 +1858,10 @@ EfiMain(
     struct registers regs;
 
     SystemTable = _SystemTable;
+
+    // struct xsave buf[3];
+    //             struct fpu_state_buffer fsb;
+    //             asm volatile("xsave (%0)":: "r"(&buf[0]):);
 
     wprintf(L"Starting VMXbench ...\r\n");
 
@@ -2363,6 +2390,8 @@ EfiMain(
         wprintf(L" vmfunc enable\n");
     if (vmread(0x401e) & (1 << 1))
         wprintf(L" ept enable\n");
+    if (vmread(0x401e) & (1 << 20))
+        wprintf(L" xsaves\n");
     // for (int i_pdpt = 0; i_pdpt < 512; ++i_pdpt)
     // {
     //     pdp_table[i_pdpt] = (uint64_t)&page_directory[i_pdpt] | 0x407;
@@ -2422,6 +2451,8 @@ EfiMain(
     // vmwrite(0x6804, vmread(0x6804)&~(1<<5));
     // wprintf(L"PAE 0x%x\n", vmread(0x6804)>>5 &1);
     // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
+// rdmsr(0x48a);
+// vmwrite(0x482e,0);
     if (!__builtin_setjmp(env))
     {
         wprintf(L"Launch a VM\r\r\n");
