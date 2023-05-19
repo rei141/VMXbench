@@ -7,6 +7,7 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
  		-I ./uefi-headers/Include -I ./uefi-headers/Include/X64 
 
 QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
+QEMU_THREAD = /home/ishii/nestedFuzz/qemu_thread/build/qemu-system-x86_64
 # QEMU = qemu-system-x86_64
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
 
@@ -52,7 +53,11 @@ qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
 		allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
 	sudo $(QEMU) $(QEMU_OPTS)
-
+qemu_thread: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
+	sudo modprobe -r kvm_intel;
+	sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
+		allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
+	sudo $(QEMU_THREAD) $(QEMU_OPTS)
 #sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1
 #	 allow_smaller_maxphyaddr=1 preemption_timer=0 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1;
 # sudo modprobe kvm_intel ept=0 nested_early_check=0; ubsan

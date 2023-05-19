@@ -154,8 +154,6 @@ int main(int argc, char** argv) {
             // ret = system(qemu_command);
             ivmshm[4000] = 0;
             ivmshm[4002] = 1; // kill qemu
-            // msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-
             ivmshm[4004] = 0;
             msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
             // sleep(7);
