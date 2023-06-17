@@ -1,1 +1,10 @@
+.gitignore
+*
+!*/
+!*.*
+
+image/
+OVMF.fd
 *.efi
+*.txt
+!Makefile
