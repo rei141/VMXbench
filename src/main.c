@@ -59,6 +59,13 @@ uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806,
 #define vmcs_num 153
 #define get64b(x) ((uint64_t *)(input_buf + x))[0]
 #define get32b(x) ((uint32_t *)(input_buf + x))[0]
+#define get16b(x) ((uint16_t *)(input_buf + x))[0]
+#define get8b(x) ((uint8_t *)(input_buf + x))[0]
+
+#define INPUT_READY 8000
+#define EXEC_DONE 8001
+#define QEMU_READY 8004
+
 uint16_t l = 54;
 uint16_t shiftcount;
 uint16_t *input_buf;
@@ -156,20 +163,21 @@ uint64_t pml4_table_2[512] __attribute__((aligned(4096)));
 
 
 void exec_cpuid(){
-    if (input_buf[index_count++] % 3 == 0)
+    if (get8b(index_count++) % 3 == 0)
     {
-        asm volatile("cpuid" ::"a"(input_buf[index_count++] % 0x21), "c"(input_buf[index_count++] % 0x21)
+        asm volatile("cpuid" ::"a"(get8b(index_count++) % 0x21), "c"(get8b(index_count++) % 0x21)
                      : "ebx", "edx");
     }
-    if (input_buf[index_count++] % 3 == 1)
+    if (get8b(index_count++) % 3 == 1)
     {
-        asm volatile("cpuid" ::"a"(0x80000000 | input_buf[index_count++] % 0x9)
+        asm volatile("cpuid" ::"a"(0x80000000 | get8b(index_count++) % 0x9)
                      : "ebx", "edx");
     }
     else
     {
-        asm volatile("cpuid" ::"a"(0x4fffffff & (input_buf[index_count++] << 16 | input_buf[index_count++]))
+        asm volatile("cpuid" ::"a"(0x4fffffff & (get32b(index_count++)))
                      : "ebx", "edx");
+        index_count += 4;
     }
 }
 
@@ -184,7 +192,7 @@ void exec_invd(){
 void exec_invlpg(){
     uint64_t p;
     p = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
     asm volatile("invlpg %0"
                     :
                     : "m"(p)); // 14 vmexit o
@@ -192,7 +200,7 @@ void exec_invlpg(){
 void exec_rdpmc(){
     uint64_t p;
     p = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
         asm volatile("rdpmc"
                      : "+c"(p)
                      :
@@ -206,10 +214,10 @@ void exec_rsm(){
 }
 void exec_vmclear(){
     uint64_t value = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
 
-    if(input_buf[index_count++]%2){
-        if(input_buf[index_count++]%2){
+    if(get8b(index_count++)%2){
+        if(get8b(index_count++)%2){
             asm volatile("vmclear %0" ::"m"(current_evmcs));
         }
         else{
@@ -237,51 +245,56 @@ void exec_l2_vmptrst(){
 
 void exec_vmptrld(){
     uint64_t value = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
     vmptrld(&value);
 }
 
 void exec_l1_vmread(){
-    vmread(vmcs_index[input_buf[index_count++] % vmcs_num]);
+    vmread(vmcs_index[get16b(index_count) % vmcs_num]);
+    index_count += 2;
 }
 void exec_l1_vmwrite(){
     uint64_t value = get64b(index_count);
-    index_count += 4;
-    vmwrite(vmcs_index[input_buf[index_count++] % vmcs_num], value);
+    index_count += 8;
+    vmwrite(vmcs_index[get16b(index_count) % vmcs_num], value);
+    index_count += 2;
 }
 void exec_l2_vmread(){
-        if(input_buf[index_count++]%2){
+        if(get8b(index_count++)%2){
             uint64_t *v =(uint64_t *)get64b(index_count);
-            index_count+=4;
+            index_count+=8;
             asm volatile ("vmread %1, %0"
                 : "=m" (v)
-                : "a" ((uint64_t)(vmcs_index[input_buf[index_count++] % vmcs_num]))
+                : "a" ((uint64_t)(vmcs_index[get16b(index_count) % vmcs_num]))
                 : "cc");         
+            index_count += 2;
         }
         else {
             uint64_t value;
             asm volatile("vmread %%rax, %%rdx"
                         : "=d"(value)
-                        : "a"(vmcs_index[input_buf[index_count++] % vmcs_num])
+                        : "a"(vmcs_index[get16b(index_count) % vmcs_num])
                         : "cc");
+            index_count += 2;
         }
 }
 void exec_l2_vmwrite(){
     uint64_t value = get64b(index_count);
-    index_count += 4;
-    // vmwrite(vmcs_index[input_buf[index_count++]%vmcs_num],value);
-    if(input_buf[index_count++]%2){
+    index_count += 8;
+    if(get8b(index_count++)%2){
         uint64_t *v =(uint64_t *)value;
         asm volatile ("vmwrite %1, %0"
             : 
-            : "a" ((uint64_t)(vmcs_index[input_buf[index_count++] % vmcs_num])),"m" (v)
+            : "a" ((uint64_t)(vmcs_index[get16b(index_count) % vmcs_num])),"m" (v)
             : "cc");
+        index_count += 2;
     }
     else {
         asm volatile("vmwrite %%rdx, %%rax"
                     :
-                    : "a"(vmcs_index[input_buf[index_count++] % vmcs_num]), "d"(value)
+                    : "a"(vmcs_index[get16b(index_count) % vmcs_num]), "d"(value)
                     : "cc", "memory");
+        index_count += 2;
     }
 }
 void exec_vmxoff(){
@@ -290,7 +303,7 @@ void exec_vmxoff(){
 
 void exec_vmxon(){
     uint64_t value = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
     asm volatile("vmxon %0" ::"m"(value));
 }
 void exec_vmresue(){
@@ -299,12 +312,12 @@ void exec_vmresue(){
 
 void exec_cr() {
     uint64_t value,zero;
-    switch (input_buf[index_count++] % 4)
+    switch (get8b(index_count++) % 4)
     {
     case 0:
         value = get64b(index_count);
-        index_count += 4;
-        switch (input_buf[index_count++] % 4)
+        index_count += 8;
+        switch (get8b(index_count++) % 4)
         {
         case 0:
             asm volatile("movq %0, %%cr0"
@@ -329,7 +342,7 @@ void exec_cr() {
         }
         break;
     case 1:
-        switch (input_buf[index_count++] % 4)
+        switch (get8b(index_count++) % 4)
         {
         case 0:
             asm volatile("movq %%cr0, %0"
@@ -357,7 +370,7 @@ void exec_cr() {
         asm volatile("clts");
         break;
     case 3:
-        value = (uint16_t)get32b(index_count);
+        value = get16b(index_count);
         index_count += 2;
         asm volatile("lmsw %0"
                         :
@@ -404,73 +417,83 @@ void exec_dr() {
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr1"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr2"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr3"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr4"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr5"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr6"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
     asm volatile("movq %0, %%dr7"
                     : "+c"(get64b(index_count))
                     :
                     : "%rax");
+    index_count += 8;
 }
 
 void exec_io(){
-    if(input_buf[index_count++]%2){
-        asm volatile("mov %0, %%dx" ::"r"(input_buf[index_count++]));
+    if(get8b(index_count++)%2){
+        asm volatile("mov %0, %%dx" ::"r"(get16b(index_count)));
+        index_count += 2;
         asm volatile("mov %0, %%eax" ::"r"(get32b(index_count)));
         asm volatile("out %eax, %dx");
-        index_count += 2;
+        index_count += 4;
     }
     else {
-        asm volatile("mov %0, %%dx" ::"r"(input_buf[index_count++]));
+        asm volatile("mov %0, %%dx" ::"r"(get16b(index_count)));
+        index_count += 2;
         asm volatile("in %dx, %eax");
     }
 }
 
 void exec_rdmsr(){
-    uint32_t index = msr_table[get32b(index_count)%MSR_TABLE_SIZE];
+    uint32_t index = msr_table[get16b(index_count)%MSR_TABLE_SIZE];
     index_count += 2;
-    if(input_buf[index_count++]%2){
+    if(get8b(index_count++)%2){
         asm volatile("rdmsr" ::"c"(index));
     }
     else{
         index = get32b(index_count);
-        index_count += 2;
+        index_count += 4;
         asm volatile("rdmsr" ::"c"(index));
     }
 }
 void exec_wrmsr(){
-    uint32_t index = msr_table[get32b(index_count)%MSR_TABLE_SIZE];
+    uint32_t index = msr_table[get16b(index_count)%MSR_TABLE_SIZE];
     index_count += 2;
     uint64_t value = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
 
-    if(input_buf[index_count++]%2){
+    if(get8b(index_count++)%2){
         asm volatile("wrmsr" ::"c"(index), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
     }
     else{
         index = get32b(index_count);
-        index_count += 2;
+        index_count += 4;
         asm volatile("wrmsr" ::"c"(index), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
         // asm volatile("wrmsr" ::"c"(0xC0000000 | (index & 0x1FFF)), "a"(value & 0xFFFFFFFF), "d"(value >> 32));
     }
@@ -491,22 +514,23 @@ void exec_invept(){
     invept_t inv;
     inv.rsvd = 0;
     inv.ptr = get64b(index_count);
-    index_count += 4;
-    int type = input_buf[index_count++]%4;
+    index_count += 8;
+    int type = get8b(index_count++)%4;
     invept((uint64_t)type, &inv);
 }
 void exec_invvpid(){
     invvpid_t inv;
     inv.rsvd = 0;
     inv.gva = get64b(index_count);
-    inv.vpid = input_buf[index_count];
-    index_count += 4;
-    int type = input_buf[index_count++]%4;
+    index_count += 8;
+    inv.vpid = get16b(index_count);
+    index_count += 2;
+    int type = get8b(index_count++)%4;
     invvpid((uint64_t)type, &inv);
 }
 
 void exec_wb(){
-    if(input_buf[index_count++]%2){
+    if(get8b(index_count++)%2){
     asm volatile("wbnoinvd" ::
                         :); // 54
     }
@@ -533,7 +557,8 @@ void exec_invpcid(){
 }
 
 void exec_vmfunc(){
-    uint64_t value = input_buf[index_count++]%512;
+    uint64_t value = get16b(index_count++)%512;
+    index_count += 2;
     asm volatile ("mov %0, %%rcx"::"d" (value):);
     // asm volatile ("mov 0, %eax");
     // asm volatile ("vmfunc":::);
@@ -561,12 +586,13 @@ void exec_pconfig(){
 }
 
 void exec_msr_save_load(){
-    int i = input_buf[index_count++] % 512;
-    int selector = input_buf[index_count++] % 3;
-    uint32_t index = msr_table[get32b(index_count)%MSR_TABLE_SIZE];
+    int i = get16b(index_count++) % 512;
+    index_count += 2;
+    int selector = get8b(index_count++) % 3;
+    uint32_t index = msr_table[get16b(index_count++)%MSR_TABLE_SIZE];
     index_count += 2;
     uint64_t value = get64b(index_count);
-    index_count += 4;
+    index_count += 8;
     switch(selector){
         case 0:
             msr_store[i*2] = index;
@@ -587,13 +613,16 @@ void exec_msr_save_load(){
 }
 
 void exec_page_table(){
-    uint8_t ept_xwr = input_buf[index_count++] &0xf;
-    uint16_t ept_mode = input_buf[index_count++] &0xff0;
+    uint8_t ept_xwr = get8b(index_count++) &0xf;
+    uint16_t ept_mode = get16b(index_count++) &0xff0;
+    index_count += 2;
     pml4_table[0] = (uint64_t)&pdp_table[0] | ept_mode | ept_xwr;
     pml4_table_2[0] = (uint64_t)&pdp_table[0] | ept_mode | ept_xwr;
 
-    uint32_t i_pdpt = input_buf[index_count++] %512;
-    uint32_t i_pd = input_buf[index_count++] %512;
+    uint32_t i_pdpt = get16b(index_count++) %512;
+    index_count += 2;
+    uint32_t i_pd = get16b(index_count++) %512;
+    index_count += 2;
 
     pdp_table[i_pdpt] = (uint64_t)&page_directory[i_pdpt]| ept_mode | ept_xwr;
 
@@ -649,7 +678,6 @@ void host_entry(uint64_t arg)
     // vmptrld(ptr);
     // vmptrld(&vmxonptr);
     // vmptrld(&vmxonptr);
-    input_buf[4003] = 0;
     // __builtin_longjmp(env, 1);
     uint64_t reason = vmread(0x4402);
     uint64_t rip = vmread(0x681E); // Guest RIP
@@ -860,7 +888,7 @@ void host_entry(uint64_t arg)
         // if (1) {
         // while(1){
         if (loop_count != 1)
-            input_buf[4001] = 1;
+            input_buf[EXEC_DONE] = 1;
 // {
             // invept_t inv;
 //         uint64_t eptp = (uint64_t)pml4_table;
@@ -931,25 +959,23 @@ uint64_t aa =  0x4000;
 // }
 
         vmwrite(0x2, loop_count);
-        is_input_ready = input_buf[4000];
+        is_input_ready = input_buf[INPUT_READY];
         while (!is_input_ready)
         {
-            is_input_ready = input_buf[4000];
+            is_input_ready = input_buf[INPUT_READY];
         }
-        input_buf[4000] = 0;
-        input_buf[4003] = 1;
-        // wprintf(L"0x681E: %x\n", vmread(0x681e));
-        // wprintf(L"guest_entry: %x\n", (uint64_t)guest_entry);
+        input_buf[INPUT_READY] = 0;
 
-        wvalue = (uint64_t)input_buf[3] << 48 | (uint64_t)input_buf[3] << 32 | (uint64_t)input_buf[2] << 16 | (uint64_t)input_buf[1];
+        wvalue = get64b(index_count);
+        index_count += 8;
         invept_t inv;
         uint64_t eptp = (uint64_t)pml4_table_2;
-        uint64_t type = input_buf[1] % 4;
+        uint64_t type = get8b(index_count++) % 4;
         inv.rsvd = 0;
         inv.ptr = eptp|0x5e;
             // invept((uint64_t)1,&inv);
         // inv.rsvd = wvalue;
-        if (input_buf[500] % 2 == 0)
+        if (get8b(index_count++) % 2 == 0)
         {
             inv.ptr = eptp;
             // inv.rsvd = eptp;
@@ -959,7 +985,8 @@ uint64_t aa =  0x4000;
         //     invept((uint64_t)type,&inv);
         // inv.rsvd = eptp;
         invvpid_t inv2;
-        inv2.vpid = input_buf[502];
+        inv2.vpid = get16b(index_count++);
+        index_count += 2;
         inv2.gva = wvalue;
         inv2.rsvd = 0;
         // inv.ptr = input_buf[503] % 4;
@@ -969,7 +996,7 @@ uint64_t aa =  0x4000;
         // int tmp = vmcs_num;
         int tmp = 70;
 
-        for (int i = 0 * 4; i < vmcs_num * 4; i += 4)
+        for (int i = 0 * 8; i < vmcs_num * 8; i += 8)
         {
             // for (int i =tmp*4; i <vmcs_num*4; i += 4) {
             // for (int i = tmp*4; i <100*4; i += 4) {
@@ -977,18 +1004,17 @@ uint64_t aa =  0x4000;
             // for (int i = 4*72; i <4*73; i += 4) {
             // for (int i = 4*60; i <4*71; i += 4) {
             // for (int i = 50*4; i <70*4; i += 4) {
-            if (i / 4 == vmcs_num)
+            if (i / 8 == vmcs_num)
             {
                 break;
             }
-            windex = i / 4;
+            windex = i / 8;
             windex = vmcs_index[windex];
             vmread(windex);
-            wvalue = ((uint64_t *)(input_buf) + i / 4)[0];
+            // wvalue = ((uint64_t *)(input_buf) + i / 8)[0];
+            wvalue = get64b(i/8);
             // wrmsr(0x40000105,windex);
             // wrmsr(0x40000105,wvalue);
-            // wprintf(L"input_buf[%x:%d] = 0x%x\n",i*2,i, wvalue);
-            // wvalue = (uint64_t)input_buf[i];
             if (
                 /* VMCS 16-bit guest-state fields 0x80x */
                 // (windex & 0xfff0) == 0x800 ||
@@ -1352,13 +1378,14 @@ uint64_t aa =  0x4000;
         //     }
         // }
 
-        index_count = 0x500 / 2;
-        windex = vmcs_index[input_buf[index_count++] % vmcs_num]; // at 0x500 byte
+        index_count = 0x500;
+        windex = vmcs_index[get16b(index_count) % vmcs_num]; // at 0x500 byte
+        index_count += 2;
         uint32_t bits;
-        uint32_t c = input_buf[index_count++] % 6;
+        uint32_t c = get8b(index_count++) % 6;
         wprintf(L"count %d\n", c);
         for (int i = 0; i < c; i++){
-            bits = input_buf[index_count++];
+            bits = get8b(index_count++);
             // index_count++;
 
             if (windex < 0x2000)
@@ -1387,13 +1414,13 @@ uint64_t aa =  0x4000;
                 {
                     // vmwrite(windex, 0x3fffffffe000);
                     wvalue = get64b(index_count);
-                    index_count += 4;
+                    index_count += 8;
                     vmwrite(windex, wvalue & ~(0xFFF));
                 }
                 else
                 {
                     // wprintf(L"vmwrite(0x%x,0x%x);\n",windex,vmread(windex));
-                    if (input_buf[index_count++] % 2)
+                    if (get8b(index_count++) % 2)
                     {
                         // wprintf(L"vmwrite(0x%x,0x%x);\n",windex,vmread(windex));
                         // vmwrite(windex, wvalue);
@@ -1413,7 +1440,8 @@ uint64_t aa =  0x4000;
             //         // vmwrite(vmcs_index[i],restore_vmcs[i]);
             //     }
             // }
-            windex = vmcs_index[input_buf[index_count++] % vmcs_num]; // at 0x500 byte
+            windex = vmcs_index[get16b(index_count) % vmcs_num]; // at 0x500 byte
+            index_count += 2;
         }
 
         if (current_evmcs)
@@ -1429,10 +1457,11 @@ uint64_t aa =  0x4000;
             vmwrite(0x440c, 0);
         }
         // wprintf(L" sizeof(exec_l1_table); %d\n",sizeof(exec_l1_table)/sizeof(uint64_t));
-        c = input_buf[index_count++] % 6;
+        c = get8b(index_count++) % 6;
         wprintf(L" FUZZ L1 !!!\n");
         for (int i = 0; i < c; i++){
-            int selector = input_buf[index_count++] %(sizeof(exec_l1_table)/sizeof(uint64_t));
+            int selector = get16b(index_count) %(sizeof(exec_l1_table)/sizeof(uint64_t));
+            index_count += 2;
             wprintf(L" #%d",selector);
             exec_l1_table[selector]();
         }
@@ -1508,10 +1537,11 @@ uint64_t aa =  0x4000;
             // current_evmcs->revision_id = 1;
         }
 
-        if(input_buf[index_count]%2){
+        if(get8b(index_count++)%2){
             for (int i = 0; i < 10; i++)
             {
-                int selector = input_buf[index_count++] % sizeof(exec_l1_table);
+                int selector = get16b(index_count) % sizeof(exec_l1_table);
+                index_count += 2;
                 exec_l1_table[selector]();
                 // exec_fuzz();
             }
@@ -1684,7 +1714,8 @@ uint64_t aa =  0x4000;
         uint16_t instr_selector;
         for (int i = 0; i < 20; i++)
         {
-            int selector = input_buf[index_count++] % (sizeof(exec_l2_table)/sizeof(uint64_t));
+            int selector = get16b(index_count) % (sizeof(exec_l2_table)/sizeof(uint64_t));
+            index_count += 2;
             exec_l2_table[selector]();
         }
 
@@ -1825,6 +1856,7 @@ EfiMain(
     for (dev = 0; dev < 32; dev++)
     {
         uint16_t vendor_id = ReadVendorId(0, dev, 0);
+            wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n", 0, dev, 0, vendor_id);
         if (vendor_id == 0x1af4)
         {
             ivshm_dev = dev;
@@ -1835,7 +1867,8 @@ EfiMain(
     uintptr_t bar2 = ReadBar(0, ivshm_dev, 0, 2);
     wprintf(L"bar2:0x%x\r\n", bar2);
     input_buf = (void *)(bar2);
-    input_buf[4004] = 1;
+    input_buf[QEMU_READY] = 1;
+    input_buf[0xDEAD] = 0xdead;
 
     uint32_t ecx, ebx, edx;
     uint32_t eax;
@@ -2122,7 +2155,8 @@ EfiMain(
     // uintptr_t vmentry_msr_load_addr = (uintptr_t)vmentry_msr_load;
     for (int i = 0; i < 8; i++)
     {
-        posted_int_desc[i] = (uint64_t)get64b(i);
+        posted_int_desc[i] = get64b(i);
+        index_count += 8;
     }
     uintptr_t posted_int_desc_addr = (uintptr_t)posted_int_desc;
     vmwrite(0x2006, (uint64_t)msr_store);
@@ -2334,7 +2368,6 @@ EfiMain(
         current_evmcs->hv_clean_fields = 0;
         // current_evmcs->revision_id = 1;
     }
-    input_buf[4003] = 0;
     // input_buf[1000] = 0xdead;
     // wprintf(L"vmwrite(0x4000, 0x%x);\n",vmread(0x4000));
     // vmwrite(0x401e,vmread(0x401e)|1<<15);
