@@ -68,7 +68,7 @@ uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806,
 
 uint16_t l = 54;
 uint16_t shiftcount;
-uint16_t *input_buf;
+uint8_t *input_buf;
 struct hv_vp_assist_page *current_vp_assist;
 
 uint64_t restore_vmcs[vmcs_num];
@@ -1833,7 +1833,7 @@ uint64_t *SetupIdentityPageTable()
 // uint64_t page_dir[512] __attribute__((aligned(0x1000)));  // must be aligned to page boundary
 
 struct hv_enlightened_vmcs *current_evmcs;
-
+// int num_device;
 EFI_STATUS
 EFIAPI
 EfiMain(
@@ -1853,14 +1853,21 @@ EfiMain(
 
     uint8_t ivshm_dev = 0;
     uint8_t dev = 0;
-    for (dev = 0; dev < 32; dev++)
-    {
-        uint16_t vendor_id = ReadVendorId(0, dev, 0);
-            wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n", 0, dev, 0, vendor_id);
-        if (vendor_id == 0x1af4)
+    ScanAllBus();
+    wprintf(L"device 0x%x\n",num_device);
+    for (int i = 0; i < num_device; i++){
+        // wprintf(L"device %d: 0x%x, 0x%x\n",i,devices[i].bus,devices[i].function);
+        for (dev = 0; dev < 32; dev++)
         {
-            ivshm_dev = dev;
-            wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n", 0, dev, 0, vendor_id);
+            uint16_t vendor_id = ReadVendorId(devices[i].bus, dev, devices[i].function);
+            if (vendor_id == 0x1af4)
+            {
+                ivshm_dev = dev;
+                wprintf(L"bus:%d, dev:%d, func:%d, vendor : %04x\r\n", devices[i].bus, dev, devices[i].function, vendor_id);
+                break;
+            }
+        }
+        if(ivshm_dev){
             break;
         }
     }
@@ -1868,7 +1875,9 @@ EfiMain(
     wprintf(L"bar2:0x%x\r\n", bar2);
     input_buf = (void *)(bar2);
     input_buf[QEMU_READY] = 1;
-    input_buf[0xDEAD] = 0xdead;
+    input_buf[0xDEAD] = 0x0;
+    input_buf[8192] = 0x1;
+    input_buf[0x8192] = 0x0;
 
     uint32_t ecx, ebx, edx;
     uint32_t eax;
@@ -1896,7 +1905,7 @@ EfiMain(
 
     // for(int i = 0; i < 20; i++){
     // wprintf(L"buf[%d] = %x\r\n", i,input_buf[i]);}
-    input_buf[3000] = 0xdead;
+    // input_buf[3000] = 0xdead;
     // return 1;
     SetupIdentityPageTable();
 

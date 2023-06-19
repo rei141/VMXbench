@@ -1,7 +1,6 @@
 #pragma once
 #include <stdint.h>
     
-    
 
     struct ClassCode {
     uint8_t base, sub, interface;} typedef ClassCode;
@@ -9,6 +8,8 @@ struct Device {
     uint8_t bus, device, function, header_type;
     ClassCode class_code;
   }typedef Device;
+    extern int num_device;
+    extern Device devices[32];
 uint32_t IoIn32(uint16_t addr);
 void IoOut32(uint16_t addr, uint32_t data);
 //     inline uint16_t ReadVendorId(const Device& dev) {

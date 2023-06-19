@@ -2,6 +2,7 @@
     uint16_t kConfigAddress = 0x0cf8;
     uint16_t kConfigData = 0x0cfc;
     int num_device;
+    
 Device devices[32];
 void IoOut32(uint16_t addr, uint32_t data){
     asm volatile ("mov %0, %%dx" ::"r" (addr));

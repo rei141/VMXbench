@@ -5,7 +5,6 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
 	 -mno-stack-arg-probe -mno-red-zone -mno-sse -mno-ms-bitfields \
          -Wl,--subsystem,10 \
          -e EfiMain \
-         -O6
 
 
 QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
@@ -15,7 +14,7 @@ QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": 
 
 QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
 	-cpu host,vmx,hv-passthrough=off\
-	-m 1024 \
+	-m 1024 -smp 2\
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
