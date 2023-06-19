@@ -4,6 +4,7 @@
 !*.*
 
 image/
+out/
 OVMF.fd
 *.efi
 *.txt
