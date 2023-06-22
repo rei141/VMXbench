@@ -62,6 +62,11 @@ uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806,
 #define get16b(x) ((uint16_t *)(input_buf + x))[0]
 #define get8b(x) ((uint8_t *)(input_buf + x))[0]
 
+#define write64b(x, v) ((uint64_t *)(input_buf + x))[0] = (uint64_t)v
+#define write32b(x, v) ((uint32_t *)(input_buf + x))[0] = (uint32_t)v
+#define write16b(x, v) ((uint16_t *)(input_buf + x))[0] = (uint16_t)v
+#define write8b(x, v) ((uint8_t *)(input_buf + x))[0] = (uint8_t)v
+
 #define INPUT_READY 8000
 #define EXEC_DONE 8001
 #define QEMU_READY 8004
@@ -995,7 +1000,6 @@ uint64_t aa =  0x4000;
         wprintf(L"guest_entry: %x\n", (uint64_t)guest_entry);
         // int tmp = vmcs_num;
         int tmp = 70;
-
         for (int i = 0 * 8; i < vmcs_num * 8; i += 8)
         {
             // for (int i =tmp*4; i <vmcs_num*4; i += 4) {
@@ -1317,6 +1321,34 @@ uint64_t aa =  0x4000;
         // vmwrite(0x4016, vmread(0x4016) | 0x7 << 8); // HLT
         // vmwrite(0x4826, 3); // HLT
 
+        for (int i = 0; i < vmcs_num; i++){
+            uint64_t v = vmread(vmcs_index[i]);
+            write64b(0x3000 + i*8, v);
+            // wprintf(L"%d: 0x%x\n", i, v);
+        }
+        write64b(0x3500, VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
+        write64b(0x3500 + 1*8, VMX_MSR_VMX_BASIC);
+        write64b(0x3500 + 2*8, VMX_MSR_VMX_PINBASED_CTRLS);
+        write64b(0x3500 + 3*8, VMX_MSR_VMX_TRUE_PINBASED_CTRLS);
+        write64b(0x3500 + 4*8, VMX_MSR_VMX_PROCBASED_CTRLS);
+        write64b(0x3500 + 5*8, VMX_MSR_VMX_TRUE_PROCBASED_CTRLS);
+        write64b(0x3500 + 6*8, VMX_MSR_VMX_VMEXIT_CTRLS);
+        write64b(0x3500 + 7*8, VMX_MSR_VMX_TRUE_VMEXIT_CTRLS);
+        write64b(0x3500 + 8*8, VMX_MSR_VMX_VMENTRY_CTRLS);
+        write64b(0x3500 + 9*8, VMX_MSR_VMX_TRUE_VMENTRY_CTRLS);
+        write64b(0x3500 + 10*8, VMX_MSR_MISC);
+        write64b(0x3500 + 11*8, VMX_MSR_CR0_FIXED0);
+        write64b(0x3500 + 12*8, VMX_MSR_CR0_FIXED1);
+        write64b(0x3500 + 13*8, VMX_MSR_CR4_FIXED0);
+        write64b(0x3500 + 14*8, VMX_MSR_CR4_FIXED1);
+        write64b(0x3500 + 15*8, VMX_MSR_VMX_PROCBASED_CTRLS2);
+        write64b(0x3500 + 16*8, VMX_MSR_VMX_EPT_VPID_CAP);
+        write64b(0x3500 + 17*8, MSR_EFER);
+        
+        wprintf(L"0x%x\n",VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
+        wprintf(L"0x%x\n",MSR_EFER);
+        
+
 
         enum VMX_error_code vmentry_check_failed = VMenterLoadCheckVmControls();
         if (!vmentry_check_failed)
@@ -1406,7 +1438,7 @@ uint64_t aa =  0x4000;
             }
             invalidate_vmcs(windex, bits);
             wprintf(L"0x%x #%d\r\n", windex, bits);
-
+            wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, vmread(0x201a));
 
             if ((windex & 0x0f00) != 0xc00)
             {
@@ -2282,7 +2314,7 @@ EfiMain(
                       1 << 4 |
                       1 << 5 |
                       1 << 6 |
-                      1 << 7 |
+                    //   1 << 7 |
                       1 << 8 |
                       1 << 9 |
                       1 << 10 |
@@ -2449,6 +2481,24 @@ EfiMain(
     // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
 // rdmsr(0x48a);
 // vmwrite(0x482e,0);
+    wprintf(L"vmwrite(0x201a, 0x%x);\n", vmread(0x201a));
+        // vmwrite(0x201a, 0x0000005e);
+        // vmwrite(0x201a, 0x1000005e);
+        // vmwrite(0x201a, 0x2000005e);
+        // vmwrite(0x201a, 0x3000005e);
+        vmwrite(0x201a, 0x4000005e); // bug
+        // vmwrite(0x201a, 0x5000005e); // bug
+        // vmwrite(0x201a, 0x6000005e); // bug
+        // vmwrite(0x201a, 0x7000005e); // bug
+        // vmwrite(0x201a, 0x8000005e); 
+        // vmwrite(0x201a, 0x9000005e); // bug
+        // vmwrite(0x201a, 0xa000005e); // bug
+        // vmwrite(0x201a, 0xb000005e); // bug
+        // vmwrite(0x201a, 0xc000005e); // bug
+        // vmwrite(0x201a, 0xd000005e); // bug
+        // vmwrite(0x201a, 0xe000005e); // bug
+        // vmwrite(0x201a, 0xf000005e); // bug
+        // asm volatile("vmresume\n\t");
     if (!__builtin_setjmp(env))
     {
         wprintf(L"Launch a VM\r\r\n");
