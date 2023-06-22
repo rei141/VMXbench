@@ -2499,6 +2499,9 @@ EfiMain(
         // vmwrite(0x201a, 0xe000005e); // bug
         // vmwrite(0x201a, 0xf000005e); // bug
         // asm volatile("vmresume\n\t");
+    // for (int i = 0; i < vmcs_num; i++){
+    //     wprintf(L"vmwrite(0x%x, 0x%x);\n", vmcs_index[i], vmread(vmcs_index[i]));
+    // }
     if (!__builtin_setjmp(env))
     {
         wprintf(L"Launch a VM\r\r\n");
