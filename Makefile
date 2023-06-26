@@ -19,6 +19,8 @@ QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
+# QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
 	ENABLE_NESTED=enable_nested
@@ -30,6 +32,9 @@ VPATH = src
 SRC = main.c vmx.c pci.c uefi.c
 main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
+
+# %.efi: %.c
+# 	$(CC) $(CFLAGS) $< -o $@
 
 .PHONY: all enable_nested disable_nested qemu clean
 
