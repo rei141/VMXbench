@@ -5,8 +5,9 @@
 #include <string.h>
 #include "fuzz.h"
 
-uint8_t cov[MAX_KVM];
 int main (int argc, char * argv[]){
+    check_cpu_vendor();
+	uint8_t *cov = malloc(MAX_KVM);
     // FILE * f = 
     // DIR *dir;
     // struct dirent *dp;
@@ -16,13 +17,13 @@ int main (int argc, char * argv[]){
     char a[64];
     int b = 0;
     // printf("%d",sizeof(argv[1]));
-    for (int i = 0; i<100; i++){
-        printf("%c\n",argv[1][i]);
-        if (argv[1][i] == 'n'){
-            b = i;
-            break;
-        }
-    }
+    // for (int i = 0; i<100; i++){
+    //     printf("%c\n",argv[1][i]);
+    //     if (argv[1][i] == 'n'){
+    //         b = i;
+    //         break;
+    //     }
+    // }
     sprintf(a,"cov_%s",argv[1]);
 	FILE * result = fopen(a,"w");
     // FILE *

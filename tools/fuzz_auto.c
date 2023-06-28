@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
 
     if (kvm_arch_fd == -1)
         perror("open"), exit(1);
-    err = ftruncate(kvm_arch_fd, max_kvm_arch);
+    err = ftruncate(kvm_arch_fd, MAX_KVM_ARCH);
     if(err == -1){
         perror("ftruncate"), exit(1);
     }
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
         perror("ftruncate"), exit(1);
     }
 
-    uint8_t * kvm_arch_coverage = (uint8_t *)mmap(NULL, max_kvm_arch,
+    uint8_t * kvm_arch_coverage = (uint8_t *)mmap(NULL, MAX_KVM_ARCH,
                                     PROT_READ | PROT_WRITE, MAP_SHARED, kvm_arch_fd, 0);
     uint8_t * kvm_coverage = (uint8_t *)mmap(NULL, MAX_KVM,
                                     PROT_READ | PROT_WRITE, MAP_SHARED, kvm_fd, 0);
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
     int kvm_cnt=0;
     int max = 0;
     for(int i = 0; i < MAX_KVM; i++){
-        if(i < max_kvm_arch)
+        if(i < MAX_KVM_ARCH)
             prev_kvm_arch_cnt += kvm_arch_coverage[i];
         prev_kvm_cnt += kvm_coverage[i];
         max++;
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
             printf("ivmshm[EXEC_DONE] = 1\n");
             printf("hello\n");
             for(int i = 0; i < MAX_KVM; i++){
-                if(i < max_kvm_arch)
+                if(i < MAX_KVM_ARCH)
                     kvm_arch_cnt += kvm_arch_coverage[i];
                 kvm_cnt += kvm_coverage[i];
                 
@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
             }
             if(kvm_arch_cnt > prev_kvm_arch_cnt){
                 FILE * total_cov_file = fopen("total_kvm_arch_coverage","w");
-                fwrite(kvm_arch_coverage,sizeof(uint8_t),max_kvm_arch,total_cov_file);
+                fwrite(kvm_arch_coverage,sizeof(uint8_t),MAX_KVM_ARCH,total_cov_file);
                 fclose(total_cov_file);
                 
                 // time_t型は基準年からの秒数
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
                 sprintf(f_name,"record/n_arch_%02d_%02d_%02d_%02d_%02d_%06ld",tm->tm_mon+1, tm->tm_mday,\
                 tm->tm_hour, tm->tm_min, tm->tm_sec,tv.tv_usec);
                 FILE * record = fopen(f_name,"w");
-                fwrite(kvm_arch_coverage,sizeof(uint8_t),max_kvm_arch,record);
+                fwrite(kvm_arch_coverage,sizeof(uint8_t),MAX_KVM_ARCH,record);
                 fclose(record);
                 printf("new coverage file %s\n", f_name);
             }
@@ -256,11 +256,11 @@ int main(int argc, char** argv) {
         if(cnt > 10000){
             // kill((pid_t)p[0],SIGKILL);
             // int ret;
-            // char *qemu_command = "sudo /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
+            // char *qemu_command = "sudo /home/ishii/work/qemu/build/qemu-system-x86_64 -nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda 'json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }' -nographic -serial mon:stdio -no-reboot -smp 1";
             // // printf("hello\n");
             // ret = system(qemu_command);
             for(int i = 0; i < MAX_KVM; i++){
-                if(i < max_kvm_arch)
+                if(i < MAX_KVM_ARCH)
                     kvm_arch_cnt += kvm_arch_coverage[i];
                 kvm_cnt += kvm_coverage[i];
                 // kvm_arch_coverage[i] = 1;
@@ -288,7 +288,7 @@ int main(int argc, char** argv) {
             }
             if(kvm_arch_cnt > prev_kvm_arch_cnt){
                 FILE * total_cov_file = fopen("total_kvm_arch_coverage","w");
-                fwrite(kvm_arch_coverage,sizeof(uint8_t),max_kvm_arch,total_cov_file);
+                fwrite(kvm_arch_coverage,sizeof(uint8_t),MAX_KVM_ARCH,total_cov_file);
                 fclose(total_cov_file);
                 struct timeval tv;
                 struct tm *tm;
@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
                 sprintf(f_name,"record/n_arch_%02d_%02d_%02d_%02d_%02d_%06ld",tm->tm_mon+1, tm->tm_mday,\
                 tm->tm_hour, tm->tm_min, tm->tm_sec,tv.tv_usec);
                 FILE * record = fopen(f_name,"w");
-                fwrite(kvm_arch_coverage,sizeof(uint8_t),max_kvm_arch,record);
+                fwrite(kvm_arch_coverage,sizeof(uint8_t),MAX_KVM_ARCH,record);
                 fclose(record);
                 printf("new coverage file %s\n", f_name);
             }
