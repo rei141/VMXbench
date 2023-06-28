@@ -79,7 +79,7 @@ static inline uint64_t vmread(uint32_t index)
 static inline uint64_t rdmsr(uint32_t index)
 {
     uint64_t value;
-    value = get64b(0x500+index*8);
+    value = get64b(0x600+index*8);
     return value;
 }
 static inline void vmwrite(uint32_t index, uint64_t value)
@@ -494,20 +494,20 @@ VMCS_64BIT_GUEST_IA32_PDPTE0                       , /* EPT */
 VMCS_64BIT_GUEST_IA32_PDPTE1                       ,
 VMCS_64BIT_GUEST_IA32_PDPTE2                       ,
 VMCS_64BIT_GUEST_IA32_PDPTE3                       ,
-// #define VMCS_64BIT_GUEST_IA32_BNDCFGS                      0x00002812 /* MPX (not implemented) */
-// #define VMCS_64BIT_GUEST_IA32_BNDCFGS_HI                   0x00002813
-// #define VMCS_64BIT_GUEST_IA32_RTIT_CTL                     0x00002814 /* Processor Trace (not implemented) */
-// #define VMCS_64BIT_GUEST_IA32_RTIT_CTL_HI                  0x00002815
-// #define VMCS_64BIT_GUEST_IA32_PKRS                         0x00002818 /* Supervisor-Mode Protection Keys */
-// #define VMCS_64BIT_GUEST_IA32_PKRS_HI                      0x00002819
+VMCS_64BIT_GUEST_IA32_BNDCFGS                      , /* MPX (not implemented) */
+// VMCS_64BIT_GUEST_IA32_BNDCFGS_HI                   ,
+VMCS_64BIT_GUEST_IA32_RTIT_CTL                     , /* Processor Trace (not implemented) */
+// VMCS_64BIT_GUEST_IA32_RTIT_CTL_HI                  ,
+VMCS_64BIT_GUEST_IA32_PKRS                         , /* Supervisor-Mode Protection Keys */
+// VMCS_64BIT_GUEST_IA32_PKRS_HI                      ,
 
 /* VMCS 64-bit host state fields */
 /* binary 0010_11xx_xxxx_xxx0 */
 VMCS_64BIT_HOST_IA32_PAT                           , /* PAT */
 VMCS_64BIT_HOST_IA32_EFER                          , /* EFER */
 VMCS_64BIT_HOST_IA32_PERF_GLOBAL_CTRL              , /* Perf Global Ctrl */
-// #define VMCS_64BIT_HOST_IA32_PKRS                          0x00002C06 /* Supervisor-Mode Protection Keys */
-// #define VMCS_64BIT_HOST_IA32_PKRS_HI                       0x00002C07
+VMCS_64BIT_HOST_IA32_PKRS                          , /* Supervisor-Mode Protection Keys */
+// VMCS_64BIT_HOST_IA32_PKRS_HI                       ,
 
 /* VMCS 32_bit control fields */
 /* binary 0100_00xx_xxxx_xxx0 */
@@ -527,8 +527,8 @@ VMCS_32BIT_CONTROL_VMENTRY_EXCEPTION_ERR_CODE      ,
 VMCS_32BIT_CONTROL_VMENTRY_INSTRUCTION_LENGTH      ,
 VMCS_32BIT_CONTROL_TPR_THRESHOLD                   , /* TPR shadow */
 VMCS_32BIT_CONTROL_SECONDARY_VMEXEC_CONTROLS       ,
-// #define VMCS_32BIT_CONTROL_PAUSE_LOOP_EXITING_GAP          0x00004020 /* PAUSE loop exiting */
-// #define VMCS_32BIT_CONTROL_PAUSE_LOOP_EXITING_WINDOW       0x00004022 /* PAUSE loop exiting */
+VMCS_32BIT_CONTROL_PAUSE_LOOP_EXITING_GAP          , /* PAUSE loop exiting */
+VMCS_32BIT_CONTROL_PAUSE_LOOP_EXITING_WINDOW       , /* PAUSE loop exiting */
 
 /* VMCS 32-bit read only data fields */
 /* binary 0100_01xx_xxxx_xxx0 */
@@ -613,9 +613,9 @@ VMCS_GUEST_RFLAGS                                  ,
 VMCS_GUEST_PENDING_DBG_EXCEPTIONS                  ,
 VMCS_GUEST_IA32_SYSENTER_ESP_MSR                   ,
 VMCS_GUEST_IA32_SYSENTER_EIP_MSR                   ,
-// #define VMCS_GUEST_IA32_S_CET                              0x00006828
-// #define VMCS_GUEST_SSP                                     0x0000682A
-// #define VMCS_GUEST_INTERRUPT_SSP_TABLE_ADDR                0x0000682C
+VMCS_GUEST_IA32_S_CET                              ,
+VMCS_GUEST_SSP                                     ,
+VMCS_GUEST_INTERRUPT_SSP_TABLE_ADDR                ,
 
 /* VMCS natural width host state fields */
 /* binary 0110_11xx_xxxx_xxx0 */
@@ -630,10 +630,10 @@ VMCS_HOST_IDTR_BASE                                ,
 VMCS_HOST_IA32_SYSENTER_ESP_MSR                    ,
 VMCS_HOST_IA32_SYSENTER_EIP_MSR                    ,
 VMCS_HOST_RSP                                      ,
-VMCS_HOST_RIP                                      
-// #define VMCS_HOST_IA32_S_CET                               0x00006C18
-// #define VMCS_HOST_SSP                                      0x00006C1A
-// #define VMCS_HOST_INTERRUPT_SSP_TABLE_ADDR                 0x00006C1C
+VMCS_HOST_RIP                                      ,
+VMCS_HOST_IA32_S_CET                               ,
+VMCS_HOST_SSP                                      ,
+VMCS_HOST_INTERRUPT_SSP_TABLE_ADDR                 ,
 };
 #define VMX_HIGHEST_VMCS_ENCODING   (0x34)
 

@@ -44,19 +44,35 @@ extern uint64_t vmxonptr;
 
 static int env[28];
 
-uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806, 0x0808, 0x080a, 0x080c, 0x080e, 0x0810,
-                         0x0812, 0x0c00, 0x0c02, 0x0c04, 0x0c06, 0x0c08, 0x0c0a, 0x0c0c, 0x2000, 0x2002, 0x2004, 0x2006, 0x2008, 0x200a, 0x200c,
-                         0x200e, 0x2010, 0x2012, 0x2014, 0x2016, 0x2018, 0x201a, 0x201c, 0x201e, 0x2020, 0x2022, 0x2024, 0x2028, 0x202a, 0x202c,
-                         0x202e, 0x2032, 0x2400, 0x2800, 0x2802, 0x2804, 0x2806, 0x2808, 0x280a, 0x280c, 0x280e, 0x2810, 0x2c00, 0x2c02, 0x2c04,
-                         0x4000, 0x4002, 0x4004, 0x4006, 0x4008, 0x400a, 0x400c, 0x400e, 0x4010, 0x4012, 0x4014, 0x4016, 0x4018, 0x401a, 0x401c,
-                         0x401e, 0x4020, 0x4022, 0x4400, 0x4402, 0x4404, 0x4406, 0x4408, 0x440a, 0x440c, 0x440e, 0x4800, 0x4802, 0x4804, 0x4806, 0x4808,
-                         0x480a, 0x480c, 0x480e, 0x4810, 0x4812, 0x4814, 0x4816, 0x4818, 0x481a, 0x481c, 0x481e, 0x4820, 0x4822, 0x4824, 0x4826,
-                         0x4828, 0x482a, 0x482e, 0x4c00, 0x6000, 0x6002, 0x6004, 0x6006, 0x6008, 0x600a, 0x600c, 0x600e, 0x6400, 0x6404, 0x6402,
-                         0x6408, 0x6406, 0x640a, 0x6800, 0x6802, 0x6804, 0x6806, 0x6808, 0x680a, 0x680c, 0x680e, 0x6810, 0x6812, 0x6814, 0x6816,
-                         0x6818, 0x681a, 0x681c, 0x681e, 0x6820, 0x6822, 0x6824, 0x6826, 0x6c00, 0x6c02, 0x6c04, 0x6c06, 0x6c08, 0x6c0a, 0x6c0c,
-                         0x6c0e, 0x6c10, 0x6c12, 0x6c14, 0x6c16};
+uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 
+                         0x0800, 0x0802, 0x0804, 0x0806, 0x0808, 0x080a, 0x080c, 0x080e,
+                         0x0810, 0x0812, 
+                         0x0c00, 0x0c02, 0x0c04, 0x0c06, 0x0c08, 0x0c0a, 0x0c0c, 
+                         0x2000, 0x2002, 0x2004, 0x2006, 0x2008, 0x200a, 0x200c, 0x200e, 
+                         0x2010, 0x2012, 0x2014, 0x2016, 0x2018, 0x201a, 0x201c, 0x201e, 
+                         0x2020, 0x2022, 0x2024, 0x2026, 0x2028, 0x202a, 0x202c, 0x202e,
+                         0x2030, 0x2032, 
+                         0x2400, 
+                         0x2800, 0x2802, 0x2804, 0x2806, 0x2808, 0x280a, 0x280c, 0x280e,
+                         0x2810, 0x2812, 0x2814,         0x2818,
+                         0x2c00, 0x2c02, 0x2c04, 0x2c06,
+                         0x4000, 0x4002, 0x4004, 0x4006, 0x4008, 0x400a, 0x400c, 0x400e, 
+                         0x4010, 0x4012, 0x4014, 0x4016, 0x4018, 0x401a, 0x401c, 0x401e, 
+                         0x4020, 0x4022, 
+                         0x4400, 0x4402, 0x4404, 0x4406, 0x4408, 0x440a, 0x440c, 0x440e, 
+                         0x4800, 0x4802, 0x4804, 0x4806, 0x4808, 0x480a, 0x480c, 0x480e, 
+                         0x4810, 0x4812, 0x4814, 0x4816, 0x4818, 0x481a, 0x481c, 0x481e, 
+                         0x4820, 0x4822, 0x4824, 0x4826, 0x4828, 0x482a,         0x482e, 
+                         0x4c00, 
+                         0x6000, 0x6002, 0x6004, 0x6006, 0x6008, 0x600a, 0x600c, 0x600e, 
+                         0x6400, 0x6404, 0x6402, 0x6408, 0x6406, 0x640a, 
+                         0x6800, 0x6802, 0x6804, 0x6806, 0x6808, 0x680a, 0x680c, 0x680e, 
+                         0x6810, 0x6812, 0x6814, 0x6816, 0x6818, 0x681a, 0x681c, 0x681e, 
+                         0x6820, 0x6822, 0x6824, 0x6826, 0x6828, 0x682a, 0x682c, 
+                         0x6c00, 0x6c02, 0x6c04, 0x6c06, 0x6c08, 0x6c0a, 0x6c0c, 0x6c0e, 
+                         0x6c10, 0x6c12, 0x6c14, 0x6c16, 0x6c18, 0x6c1a, 0x6c1c};
 
-#define vmcs_num 153
+#define vmcs_num 165
 #define get64b(x) ((uint64_t *)(input_buf + x))[0]
 #define get32b(x) ((uint32_t *)(input_buf + x))[0]
 #define get16b(x) ((uint16_t *)(input_buf + x))[0]
@@ -818,6 +834,7 @@ void host_entry(uint64_t arg)
         vmwrite(0x681E, (uint64_t)guest_entry);
         asm volatile("vmresume\n\t");
     }
+    guest_hang = 1;
     // if (reason == 0x1|| reason == 62|| reason == 43|| reason ==48||reason == 47 ){
     if (reason == 0x0 || reason == 0x1 || reason == 43 || reason == 48 || reason == 47)
     {
@@ -869,6 +886,7 @@ void host_entry(uint64_t arg)
     if (reason == 18)
     {
     fuzz:
+        guest_hang = 0;
         // if (arg == 0) {
         //     // vmcall_with_vmcall_number(13);
         //     // print_exitreason(reason);
@@ -1000,7 +1018,7 @@ uint64_t aa =  0x4000;
         //     invvpid(type,&inv2);
         wprintf(L"guest_entry: %x\n", (uint64_t)guest_entry);
         // int tmp = vmcs_num;
-        int tmp = 70;
+        int tmp = 0;
         for (int i = 0 * 8; i < vmcs_num * 8; i += 8)
         {
             // for (int i =tmp*4; i <vmcs_num*4; i += 4) {
@@ -1017,9 +1035,6 @@ uint64_t aa =  0x4000;
             windex = vmcs_index[windex];
             vmread(windex);
             // wvalue = ((uint64_t *)(input_buf) + i / 8)[0];
-            wvalue = get64b(i/8);
-            // wrmsr(0x40000105,windex);
-            // wrmsr(0x40000105,wvalue);
             if (
                 /* VMCS 16-bit guest-state fields 0x80x */
                 // (windex & 0xfff0) == 0x800 ||
@@ -1125,19 +1140,23 @@ uint64_t aa =  0x4000;
             // */
             if (windex < 0x2000)
             { // 16b
-                wvalue = (uint16_t)wvalue;
+                wvalue = get16b(tmp);
+                tmp += 2;
             }
             else if (windex < 0x4000)
             { // 64b
-                wvalue = (uint64_t)wvalue;
+                wvalue = get64b(tmp);
+                tmp += 8;
             }
             else if (windex < 0x6000)
             { // 32b
-                wvalue = (uint32_t)wvalue;
+                wvalue = get32b(tmp);
+                tmp += 4;
             }
             else
             { // 64b
-                wvalue = (uint64_t)wvalue;
+                wvalue = get64b(tmp);
+                tmp += 8;
             }
             if (windex == 0x812)
             {
@@ -1327,27 +1346,24 @@ uint64_t aa =  0x4000;
             write64b(0x3000 + i*8, v);
             // wprintf(L"%d: 0x%x\n", i, v);
         }
-        write64b(0x3500, VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
-        write64b(0x3500 + 1*8, VMX_MSR_VMX_BASIC);
-        write64b(0x3500 + 2*8, VMX_MSR_VMX_PINBASED_CTRLS);
-        write64b(0x3500 + 3*8, VMX_MSR_VMX_TRUE_PINBASED_CTRLS);
-        write64b(0x3500 + 4*8, VMX_MSR_VMX_PROCBASED_CTRLS);
-        write64b(0x3500 + 5*8, VMX_MSR_VMX_TRUE_PROCBASED_CTRLS);
-        write64b(0x3500 + 6*8, VMX_MSR_VMX_VMEXIT_CTRLS);
-        write64b(0x3500 + 7*8, VMX_MSR_VMX_TRUE_VMEXIT_CTRLS);
-        write64b(0x3500 + 8*8, VMX_MSR_VMX_VMENTRY_CTRLS);
-        write64b(0x3500 + 9*8, VMX_MSR_VMX_TRUE_VMENTRY_CTRLS);
-        write64b(0x3500 + 10*8, VMX_MSR_MISC);
-        write64b(0x3500 + 11*8, VMX_MSR_CR0_FIXED0);
-        write64b(0x3500 + 12*8, VMX_MSR_CR0_FIXED1);
-        write64b(0x3500 + 13*8, VMX_MSR_CR4_FIXED0);
-        write64b(0x3500 + 14*8, VMX_MSR_CR4_FIXED1);
-        write64b(0x3500 + 15*8, VMX_MSR_VMX_PROCBASED_CTRLS2);
-        write64b(0x3500 + 16*8, VMX_MSR_VMX_EPT_VPID_CAP);
-        write64b(0x3500 + 17*8, MSR_EFER);
-        
-        wprintf(L"0x%x\n",VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
-        wprintf(L"0x%x\n",MSR_EFER);
+        write64b(0x3600, VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
+        write64b(0x3600 + 1*8, VMX_MSR_VMX_BASIC);
+        write64b(0x3600 + 2*8, VMX_MSR_VMX_PINBASED_CTRLS);
+        write64b(0x3600 + 3*8, VMX_MSR_VMX_TRUE_PINBASED_CTRLS);
+        write64b(0x3600 + 4*8, VMX_MSR_VMX_PROCBASED_CTRLS);
+        write64b(0x3600 + 5*8, VMX_MSR_VMX_TRUE_PROCBASED_CTRLS);
+        write64b(0x3600 + 6*8, VMX_MSR_VMX_VMEXIT_CTRLS);
+        write64b(0x3600 + 7*8, VMX_MSR_VMX_TRUE_VMEXIT_CTRLS);
+        write64b(0x3600 + 8*8, VMX_MSR_VMX_VMENTRY_CTRLS);
+        write64b(0x3600 + 9*8, VMX_MSR_VMX_TRUE_VMENTRY_CTRLS);
+        write64b(0x3600 + 10*8, VMX_MSR_MISC);
+        write64b(0x3600 + 11*8, VMX_MSR_CR0_FIXED0);
+        write64b(0x3600 + 12*8, VMX_MSR_CR0_FIXED1);
+        write64b(0x3600 + 13*8, VMX_MSR_CR4_FIXED0);
+        write64b(0x3600 + 14*8, VMX_MSR_CR4_FIXED1);
+        write64b(0x3600 + 15*8, VMX_MSR_VMX_PROCBASED_CTRLS2);
+        write64b(0x3600 + 16*8, VMX_MSR_VMX_EPT_VPID_CAP);
+        write64b(0x3600 + 17*8, MSR_EFER);
         
         input_buf[VMCS_READY] = 1;
         int read_vmcs = input_buf[VMCS_READY];
@@ -1444,7 +1460,7 @@ uint64_t aa =  0x4000;
             }
             invalidate_vmcs(windex, bits);
             wprintf(L"0x%x #%d\r\n", windex, bits);
-            wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, vmread(0x201a));
+            wprintf(L"vmwrite(0x%x, 0x%x);\n",windex, vmread(windex));
 
             if ((windex & 0x0f00) != 0xc00)
             {
@@ -2417,7 +2433,11 @@ EfiMain(
     // wprintf(L"vmwrite(0x4000, 0x%x);\n",vmread(0x4000));
     // vmwrite(0x401e,vmread(0x401e)|1<<15);
     // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
-    // wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
+    wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
+    wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_LO 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_LO);
+    wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_HI 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_HI);
+    wprintf(L"VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x;\n", vmread(0x401e)&VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
+    
     if (vmread(0x401e) & (1 << 13))
         wprintf(L" vmfunc enable\n");
     if (vmread(0x401e) & (1 << 1))
