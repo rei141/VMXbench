@@ -6,6 +6,7 @@
 #define EXEC_DONE 8001
 #define KILL_QEMU 8002
 #define QEMU_READY 8004
+#define VMCS_READY 8005
 uint64_t max_kvm_arch;
 
 void check_cpu_vendor(void) {

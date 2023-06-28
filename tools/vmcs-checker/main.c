@@ -16,6 +16,8 @@
 // #include <process.h>
 #include <sys/mman.h>
 #include "vmx.h"
+
+#define VMCS_READY 8005
 uint8_t *input_buf;
 int vmcs_num = 153;
 uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806, 0x0808, 0x080a, 0x080c, 0x080e, 0x0810,
@@ -45,16 +47,20 @@ int main(void) {
         perror("mmap"), exit(1);
 
     input_buf += 12;
+    int vmcs_ready = input_buf[VMCS_READY];
+    while (vmcs_ready != 1) {
+        vmcs_ready = input_buf[VMCS_READY];
+    }
     // printf("0x%lx\n", input_buf);
     input_buf += 0x3000;
-    printf("%d\n", VMCS_HOST_RIP);
+    // printf("%d\n", VMCS_HOST_RIP);
     for (int i = 0; i < vmcs_num; i++){
         uint64_t v = vmread(i);
-        printf("%d: 0x%lx\n", i, v);
+        // printf("%d: 0x%lx\n", i, v);
     }
     for (int i = 0; i < 18; i++){
         uint64_t v = rdmsr(i);
-        printf("%d: 0x%lx\n", i, v);
+        // printf("%d: 0x%lx\n", i, v);
     }
         enum VMX_error_code vmentry_check_failed = VMenterLoadCheckVmControls();
         if (!vmentry_check_failed)
@@ -75,9 +81,9 @@ int main(void) {
             printf("HOST STATE ERROR %0d\r\n", vmentry_check_failed);
         }
         uint64_t qualification;
-        printf("hello\n");
+        // printf("hello\n");
         uint32_t is_error = VMenterLoadCheckGuestState(&qualification);
-        printf("hello\n");
+        // printf("hello\n");
         if (!is_error)
         {
             printf("GUEST STATE OK!\r\n");
@@ -87,5 +93,11 @@ int main(void) {
             printf("GUEST STATE ERROR %0d\r\n", qualification);
             printf("GUEST STATE ERROR %0d\r\n", is_error);
         }
+
+    input_buf -= 0x3000;
+    input_buf[VMCS_READY] = 0;
+
+    if (munmap(input_buf-12, 1024*1024))
+        perror("munmap"), exit(1);
     return 0;
 }

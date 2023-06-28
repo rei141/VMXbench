@@ -402,7 +402,7 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
    //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
      vm.vmexec_ctrls2 &= VMX_CHECKS_USE_MSR_VMX_PROCBASED_CTRLS_HI;
      vmwrite(VMCS_32BIT_CONTROL_PROCESSOR_BASED_VMEXEC_CONTROLS, vm.vmexec_ctrls2);
-}
+  }
 
   if (~vm.vmexec_ctrls3 & VMX_MSR_VMX_PROCBASED_CTRLS2_LO) {
    //   // wprintf(L"VMFAIL: VMCS EXEC CTRL: VMX secondary proc-based controls allowed 0-settings\n");
@@ -543,14 +543,14 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
          vmwrite(VMCS_32BIT_CONTROL_TPR_THRESHOLD, vm.vm_tpr_threshold);
        }
 
-       if (! (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_ACCESSES)) {
-         uint8_t tpr_shadow = (VMX_Read_Virtual_APIC_VTPR() >> 4) & 0xf;
-        //  // wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
-         if (vm.vm_tpr_threshold > tpr_shadow) {
-           // wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
-          //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
-         }
-       }
+      //  if (! (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_ACCESSES)) {
+      //    uint8_t tpr_shadow = (VMX_Read_Virtual_APIC_VTPR() >> 4) & 0xf;
+      //   //  // wprintf(L"vtpr 0x%x\n",VMX_Read_Virtual_APIC_VTPR());
+      //    if (vm.vm_tpr_threshold > tpr_shadow) {
+      //      // wprintf(L"VMFAIL: VMCS EXEC CTRL: TPR threshold > TPR shadow\n");
+      //     //  return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+      //    }
+      //  }
      }
   }
 #if BX_SUPPORT_VMX >= 2
@@ -2589,11 +2589,11 @@ if (!(vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_UNRESTRICTED_GUEST))
   return VMXERR_NO_ERROR;
 }
 
-uint32_t VMX_Read_Virtual_APIC_VTPR(void){
-    uintptr_t vtpr_ptr = vmread(0x2012) + 0x80;
-    uint32_t *vtpr = (uint32_t *)vtpr_ptr;
-    return vtpr[0];
-} 
+// uint32_t VMX_Read_Virtual_APIC_VTPR(void){
+//     uintptr_t vtpr_ptr = vmread(0x2012) + 0x80;
+//     uint32_t *vtpr = (uint32_t *)vtpr_ptr;
+//     return vtpr[0];
+// } 
 uint32_t VMXReadRevisionID(bx_phy_address pAddr){
     uintptr_t vmcs_ptr = pAddr;
     uint32_t *vmcs = (uint32_t *)vmcs_ptr;

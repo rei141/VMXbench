@@ -70,6 +70,7 @@ uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004, 0x0800, 0x0802, 0x0804, 0x0806,
 #define INPUT_READY 8000
 #define EXEC_DONE 8001
 #define QEMU_READY 8004
+#define VMCS_READY 8005
 
 uint16_t l = 54;
 uint16_t shiftcount;
@@ -1348,7 +1349,12 @@ uint64_t aa =  0x4000;
         wprintf(L"0x%x\n",VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
         wprintf(L"0x%x\n",MSR_EFER);
         
-
+        input_buf[VMCS_READY] = 1;
+        int read_vmcs = input_buf[VMCS_READY];
+        while (read_vmcs)
+        {
+            read_vmcs = input_buf[VMCS_READY];
+        }
 
         enum VMX_error_code vmentry_check_failed = VMenterLoadCheckVmControls();
         if (!vmentry_check_failed)
@@ -1907,9 +1913,7 @@ EfiMain(
     wprintf(L"bar2:0x%x\r\n", bar2);
     input_buf = (void *)(bar2);
     input_buf[QEMU_READY] = 1;
-    input_buf[0xDEAD] = 0x0;
-    input_buf[8192] = 0x1;
-    input_buf[0x8192] = 0x0;
+    input_buf[VMCS_READY] = 0;
 
     uint32_t ecx, ebx, edx;
     uint32_t eax;
@@ -2486,7 +2490,7 @@ EfiMain(
         // vmwrite(0x201a, 0x1000005e);
         // vmwrite(0x201a, 0x2000005e);
         // vmwrite(0x201a, 0x3000005e);
-        vmwrite(0x201a, 0x4000005e); // bug
+        // vmwrite(0x201a, 0x4000005e); // bug
         // vmwrite(0x201a, 0x5000005e); // bug
         // vmwrite(0x201a, 0x6000005e); // bug
         // vmwrite(0x201a, 0x7000005e); // bug
