@@ -79,7 +79,12 @@ int main(int argc, char** argv) {
 
     tm = localtime(&tv.tv_sec);
     char d_name[200];
-    sprintf(d_name,"fuzz_input/%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour);
+    if (argc > 4) {
+        sprintf(d_name,"fuzz_input/%s/%02d_%02d_%02d",argv[4],tm->tm_mon+1, tm->tm_mday,tm->tm_hour);
+    }
+    else {
+        sprintf(d_name,"fuzz_input/%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour);
+    }
     struct stat st;
 
     if (stat(d_name, &st) != 0) {
@@ -95,8 +100,14 @@ int main(int argc, char** argv) {
     }
     
     char f_name[200];
-    sprintf(f_name,"fuzz_input/%02d_%02d_%02d/input_%02d_%02d_%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour,tm->tm_mon+1, tm->tm_mday,\
-    tm->tm_hour, tm->tm_min, tm->tm_sec);
+    if (argc > 4) {
+        sprintf(f_name,"fuzz_input/%s/%02d_%02d_%02d/input_%02d_%02d_%02d_%02d_%02d",argv[4],tm->tm_mon+1, tm->tm_mday,tm->tm_hour,tm->tm_mon+1, tm->tm_mday,\
+        tm->tm_hour, tm->tm_min, tm->tm_sec);
+    }
+    else {
+        sprintf(f_name,"fuzz_input/%02d_%02d_%02d/input_%02d_%02d_%02d_%02d_%02d",tm->tm_mon+1, tm->tm_mday,tm->tm_hour,tm->tm_mon+1, tm->tm_mday,\
+        tm->tm_hour, tm->tm_min, tm->tm_sec);
+    }
     FILE * record = fopen(f_name,"w");
     fwrite(ivmshm,sizeof(uint8_t),4096,record);
     fclose(record);

@@ -19,6 +19,8 @@ QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
+# QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+
 NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
 ifeq ($(NESTED),N)
 	ENABLE_NESTED=enable_nested
@@ -31,6 +33,9 @@ SRC = main.c vmx.c pci.c uefi.c
 main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
+# %.efi: %.c
+# 	$(CC) $(CFLAGS) $< -o $@
+
 .PHONY: all enable_nested disable_nested qemu clean
 
 
@@ -38,8 +43,9 @@ all: main.efi
 
 qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe -r kvm_intel;
-	sudo modprobe kvm_intel nested=1 dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
-		allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
+	sudo modprobe kvm_intel nested=1 
+	# dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
+	# 	allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
 	sudo $(QEMU) $(QEMU_OPTS)
 
 OVMF.fd:
