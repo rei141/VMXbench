@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/utsname.h>
 #include <gelf.h>
+#include <unistd.h>
 
 uint64_t MAX_KVM_ARCH;
 uint64_t MAX_KVM;
@@ -10,6 +11,7 @@ uint64_t MAX_KVM;
 #define EXEC_DONE 8001
 #define KILL_QEMU 8002
 #define QEMU_READY 8004
+#define VMCS_READY 8005
 
 static uint64_t check_text_size(char *filepath) {
     Elf         *elf;

@@ -16,47 +16,46 @@
 #include <sys/mman.h>
 
 #include "fuzz.h"
+#include "my_yaml.h"
+#include "args.h"
 
 int main(int argc, char** argv) {
     int ret;
-
-    // int fd = shm_open("ivshmem", O_CREAT|O_TRUNC|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-    int fd;
+    int shm_fd, err;
+    uint8_t *ivmshm;
     char *name = NULL;
+
+    config_t *config;
+    path_config_t *path_config;
+    
+    config = create_config(argc, argv);
+    path_config = parse_config(config->yaml_config_name);
+    if (path_config == NULL)
+        return 1;
+        
     char shm_option[100] = "memory-backend-file,size=1M,share=on,mem-path=/dev/shm/";
-    if (argc > 1 && strstr(argv[1], "ivshmem") != NULL) {
-        name = argv[1];
-        fd = shm_open(name, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-        strcat(shm_option, name);
-        strcat(shm_option, ",id=hostmem");
+    shm_fd = shm_open(config->shm_name, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (shm_fd == -1){
+        fprintf(stderr, "shm_open failed\n");
+        return 1;
     }
-    else {
-        fd = shm_open("ivshmem", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-        strcat(shm_option, "ivshmem,id=hostmem");
-    }
-    char *bitmap_name=NULL;
-    if (argc > 2 && strstr(argv[2], "bitmap") != NULL) {
-        bitmap_name = argv[2];
-    }
-
-    if (fd == -1)
-        perror("open"), exit(1);
-    int err = ftruncate(fd, 1024*1024);
+    err = ftruncate(shm_fd, 1024*1024);
     if(err == -1){
-        perror("ftruncate"), exit(1);
+        fprintf(stderr, "ftruncate failed\n");
+        return 1;
     }
+    strcat(shm_option, config->shm_name);
+    strcat(shm_option, ",id=hostmem");
 
-    uint8_t * ivmshm = (uint8_t *)mmap(NULL, 1024*1024,
-                                    PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if ((void *)ivmshm == MAP_FAILED)
-        perror("mmap"), exit(1);
+    ivmshm = (uint8_t *)mmap(NULL, 1024*1024,
+                                    PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if ((void *)ivmshm == MAP_FAILED) {
+        fprintf(stderr, "mmap failed\n");
+        return 1;
+    }
     ivmshm += 12;
-    // ivmshm += 0x6;  
-    // printf("ivmshm[9000] = 0x%x\n", ivmshm[9000]);
-    // for(int i = 0; i < 100; i++)
-    //     printf("ivmshm[%d] = 0x%x\n",8950+i, ivmshm[8950+i]);
     ivmshm[QEMU_READY] = 0;
-
+    ivmshm[KILL_QEMU] = 0;
     msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
 
     char *flags[] = {
@@ -156,57 +155,33 @@ int main(int argc, char** argv) {
     ,"x2apic"
     };
     int size = sizeof(flags) / sizeof(flags[0]);
-    ivmshm[KILL_QEMU] = 0;
 
+    char *arg2[100] = {NULL};
 
-    msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-
-    char *arg2[100];
-    for(int i = 0 ; i< 100; i++) {
-        arg2[i] = NULL;
-    }
     arg2[0] = "/usr/sbin/modprobe";
     arg2[1] = "kvm_intel";
     char *flags2[] = {
-            "allow_smaller_maxphyaddr=1"
-            ,"allow_smaller_maxphyaddr=0"
-            ,"emulate_invalid_guest_state=1"
-            ,"emulate_invalid_guest_state=0"
-            ,"enable_apicv=1"
-            ,"enable_apicv=0"
-            ,"enable_ipiv=1"
-            ,"enable_ipiv=0"
-            ,"enable_shadow_vmcs=1"
-            ,"enable_shadow_vmcs=0"
-            ,"enlightened_vmcs=1"
-            ,"enlightened_vmcs=0"
-            ,"ept=1" // 0224 ubsan
-            ,"ept=0"
+            "allow_smaller_maxphyaddr"
+            ,"emulate_invalid_guest_state"
+            ,"enable_apicv"
+            ,"enable_ipiv"
+            ,"enable_shadow_vmcs"
+            ,"enlightened_vmcs"
+            ,"ept" // 0224 ubsan
             // ,"ept=0"
-            ,"eptad=1" // 0224 ubsan
-            ,"eptad=0"
-            ,"error_on_inconsistent_vmcs_config=1"
-            ,"error_on_inconsistent_vmcs_config=0"
+            ,"eptad" // 0224 ubsan
+            ,"error_on_inconsistent_vmcs_config"
             // ,"nested"
             // ,"nested_early_check"
-            ,"unrestricted_guest=1"
-            ,"unrestricted_guest=0"
-            ,"fasteoi=1"
-            ,"fasteoi=0"
-            ,"flexpriority=1"
-            ,"flexpriority=0"
-            ,"vnmi=1"
-            ,"vnmi=0"
-            ,"vpid=1"
-            ,"vpid=0"
-            ,"dump_invalid_vmcs=1"
-            ,"dump_invalid_vmcs=0"
-            ,"sgx=1"
-            ,"sgx=0"
-            ,"pml=1"
-            ,"pml=0"
-            ,"preemption_timer=1"
-            ,"preemption_timer=0"
+            ,"unrestricted_guest"
+            ,"fasteoi"
+            ,"flexpriority"
+            ,"vnmi"
+            ,"vpid"
+            ,"dump_invalid_vmcs"
+            ,"sgx"
+            ,"pml"
+            ,"preemption_timer"
             // ,"vmentry_l1d_flush"
             // ,"ple_window_max"
             // ,"ple_gap"
@@ -215,6 +190,7 @@ int main(int argc, char** argv) {
             // ,"ple_window_shrink"
             // ,"pt_mode"
             ,NULL};
+    int num_flags = sizeof(flags2) / sizeof(flags2[0]);
 
 
     while(1){
@@ -251,15 +227,11 @@ int main(int argc, char** argv) {
 
             pid2 = fork();
             if(pid2 == 0){
-
-                for(int i = 0; flags2[i]; i++){
-                    if(ivmshm[1000+i]%2){
-                        // strcat(arg2[i+2],"=1");
-                        arg2[i+2]=flags2[i*2];
-                    }else{
-                        arg2[i+2]=flags2[i*2+1];
-                    }
-                    // printf("%s", arg2[i+2]);
+                char arg_buffers[100][50] = {{0}}; 
+                for(int i = 0; i < num_flags; i++){
+                    char *flag_value = (ivmshm[1000 + i] % 2) ? "=1" : "=0";
+                    snprintf(arg_buffers[i], sizeof(arg_buffers[i]), "%s%s", flags2[i], flag_value);
+                    arg2[i + 2] = arg_buffers[i];
                 }
                 for(int i = 0; arg2[i]!= NULL; i++)
                     printf("%s ",arg2[i]);
@@ -291,15 +263,15 @@ int main(int argc, char** argv) {
                 strcat(cpu_flags,"hv-passthrough=on");
                 // printf("!!! hv on\n");
             }
-                char * arg[] = {"/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64", "afl_bitmap", "-nodefaults", "-enable-kvm",\
+                char * arg[] = {path_config->qemu_path, "afl_bitmap", "-nodefaults", "-enable-kvm",\
                 "-machine", "accel=kvm","-cpu", cpu_flags, "-m", "1024", "-smp", "2",\
                 "-object", shm_option,\
                 "-device", "ivshmem-plain,memdev=hostmem",\
                 "-bios" ,"OVMF.fd", "-hda",\
                 "json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }", "-nographic" ,"-serial" ,"mon:stdio", "-no-reboot",
                 NULL};
-            if (bitmap_name){
-                arg[1] = bitmap_name;
+            if (config->bitmap_name){
+                arg[1] = config->bitmap_name;
             }
 
             ivmshm[QEMU_READY] = 0;
@@ -307,7 +279,7 @@ int main(int argc, char** argv) {
             for(int i = 0; arg[i]!= NULL; i++)
                 printf("%s ",arg[i]);
             printf("\n");
-            execv("/home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64",arg);
+            execv(path_config->qemu_path, arg);
             exit(1);
         }
         else {
@@ -331,6 +303,7 @@ int main(int argc, char** argv) {
             wait(NULL);
         }
     }
-
+    free(config);
+    free(path_config);
     return 0;
 }

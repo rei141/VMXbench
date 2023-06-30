@@ -1,0 +1,8 @@
+program:
+  qemu: /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
+directories:
+  work_dir: /home/ishii/nestedFuzz/VMXbench
+  fuzzinput_dir: /home/ishii/nestedFuzz/VMXbench/fuzz_input/
+  covout_dir: /home/ishii/nestedFuzz/VMXbench/record/
+  afl_dir: /home/ishii/nestedFuzz/AFLplusplus/
+  kvm: /home/ishii/nestedFuzz/linux/arch/x86/kvm/

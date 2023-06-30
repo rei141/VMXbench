@@ -6,8 +6,15 @@ CFLAGS = -std=gnu11 -ffreestanding -shared -nostdlib -Wall -Werror \
          -Wl,--subsystem,10 \
          -e EfiMain \
 
+DEFAULT_CONFIG_PATH = ./config.yaml
 
-QEMU = /home/ishii/nestedFuzz/qemu/build/qemu-system-x86_64
+ifeq ($(CONFIG_PATH),)
+    CONFIG_FILE := $(DEFAULT_CONFIG_PATH)
+else
+    CONFIG_FILE := $(CONFIG_PATH)
+endif
+
+QEMU=$(shell python3 ./tools/scripts/get_yaml.py $(CONFIG_FILE) program qemu)
 # QEMU = qemu-system-x86_64
 
 QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": false, "rw": true }'
@@ -15,7 +22,7 @@ QEMU_DISK = 'json:{ "fat-type": 0, "dir": "image", "driver": "vvfat", "floppy": 
 QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
 	-cpu host,vmx,hv-passthrough=off\
 	-m 1024 -smp 2\
-    -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivshmem,id=hostmem \
+    -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivmshm,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
 	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
