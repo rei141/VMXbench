@@ -22,7 +22,7 @@ check_file $COV_OUT
 
 check_file $CONFIG_PATH
 
-KVM_DIR=$(python3 $SCRIPT_DIR/get_yaml.py $CONFIG_PATH directories kvm)
+KVM_DIR=$(python3 $SCRIPT_DIR/get_yaml.py $CONFIG_PATH directories kvm_dir)
 
 addr2line -e $KVM_DIR/kvm-${arch}.ko -i  < $COV_OUT| cut -d "/" -f5-| cut -d"(" -f1 | sed -e "s/ //g"|sed -e "s/\/.\//\//g"| sort | uniq > /tmp/tmp
 

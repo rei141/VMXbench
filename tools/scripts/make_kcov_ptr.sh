@@ -8,7 +8,7 @@ source $SCRIPT_DIR/utilities.sh
 
 check_file $CONFIG_PATH
 
-KVM_DIR=$(python3 $SCRIPT_DIR/get_yaml.py $CONFIG_PATH directories kvm)
+KVM_DIR=$(python3 $SCRIPT_DIR/get_yaml.py $CONFIG_PATH directories kvm_dir)
 
 objdump -d -M intel $KVM_DIR/kvm-$arch.ko -r | grep cov_trace_pc | grep R_X86_64_PLT32 | cut -d ":" -f1 | sed 's/^[ \t]*//' | sed 's/^/0x/g' > "kcov_baseline/kvm_$arch"
 # echo "$1" | python3 ~/tmp/add.py > "$1-1"

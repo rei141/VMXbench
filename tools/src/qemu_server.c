@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
             // ,"ple_window_grow"
             // ,"ple_window_shrink"
             // ,"pt_mode"
-            ,NULL};
+            };
     int num_flags = sizeof(flags2) / sizeof(flags2[0]);
 
 

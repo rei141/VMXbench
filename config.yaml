@@ -5,4 +5,4 @@ directories:
   fuzzinput_dir: /home/ishii/nestedFuzz/VMXbench/fuzz_input/
   covout_dir: /home/ishii/nestedFuzz/VMXbench/record/
   afl_dir: /home/ishii/nestedFuzz/AFLplusplus/
-  kvm: /home/ishii/nestedFuzz/linux/arch/x86/kvm/
+  kvm_dir: /home/ishii/nestedFuzz/linux/arch/x86/kvm/
