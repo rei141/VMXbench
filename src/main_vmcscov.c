@@ -72,8 +72,7 @@ uint16_t vmcs_index[] = {0x0000, 0x0002, 0x0004,
                          0x6c00, 0x6c02, 0x6c04, 0x6c06, 0x6c08, 0x6c0a, 0x6c0c, 0x6c0e, 
                          0x6c10, 0x6c12, 0x6c14, 0x6c16, 0x6c18, 0x6c1a, 0x6c1c};
 
-int vmcs_num;
-
+#define vmcs_num 165
 #define get64b(x) ((uint64_t *)(input_buf + x))[0]
 #define get32b(x) ((uint32_t *)(input_buf + x))[0]
 #define get16b(x) ((uint16_t *)(input_buf + x))[0]
@@ -94,7 +93,7 @@ uint16_t shiftcount;
 uint8_t *input_buf;
 struct hv_vp_assist_page *current_vp_assist;
 
-uint64_t restore_vmcs[200];
+uint64_t restore_vmcs[vmcs_num];
 char vmcs[4096] __attribute__((aligned(4096)));
 char vmcs_backup[4096] __attribute__((aligned(4096)));
 char shadow_vmcs[4096] __attribute__((aligned(4096)));
@@ -1347,6 +1346,31 @@ uint64_t aa =  0x4000;
             write64b(0x3000 + i*8, v);
             // wprintf(L"%d: 0x%x\n", i, v);
         }
+        write64b(0x3600, VMX_VMFUNC_CTRL1_SUPPORTED_BITS);
+        write64b(0x3600 + 1*8, VMX_MSR_VMX_BASIC);
+        write64b(0x3600 + 2*8, VMX_MSR_VMX_PINBASED_CTRLS);
+        write64b(0x3600 + 3*8, VMX_MSR_VMX_TRUE_PINBASED_CTRLS);
+        write64b(0x3600 + 4*8, VMX_MSR_VMX_PROCBASED_CTRLS);
+        write64b(0x3600 + 5*8, VMX_MSR_VMX_TRUE_PROCBASED_CTRLS);
+        write64b(0x3600 + 6*8, VMX_MSR_VMX_VMEXIT_CTRLS);
+        write64b(0x3600 + 7*8, VMX_MSR_VMX_TRUE_VMEXIT_CTRLS);
+        write64b(0x3600 + 8*8, VMX_MSR_VMX_VMENTRY_CTRLS);
+        write64b(0x3600 + 9*8, VMX_MSR_VMX_TRUE_VMENTRY_CTRLS);
+        write64b(0x3600 + 10*8, VMX_MSR_MISC);
+        write64b(0x3600 + 11*8, VMX_MSR_CR0_FIXED0);
+        write64b(0x3600 + 12*8, VMX_MSR_CR0_FIXED1);
+        write64b(0x3600 + 13*8, VMX_MSR_CR4_FIXED0);
+        write64b(0x3600 + 14*8, VMX_MSR_CR4_FIXED1);
+        write64b(0x3600 + 15*8, VMX_MSR_VMX_PROCBASED_CTRLS2);
+        write64b(0x3600 + 16*8, VMX_MSR_VMX_EPT_VPID_CAP);
+        write64b(0x3600 + 17*8, MSR_EFER);
+        
+        input_buf[VMCS_READY] = 1;
+        int read_vmcs = input_buf[VMCS_READY];
+        while (read_vmcs)
+        {
+            read_vmcs = input_buf[VMCS_READY];
+        }
 
         enum VMX_error_code vmentry_check_failed = VMenterLoadCheckVmControls();
         if (!vmentry_check_failed)
@@ -1875,7 +1899,6 @@ EfiMain(
 
     SystemTable = _SystemTable;
 
-    vmcs_num = sizeof(vmcs_index) / sizeof(vmcs_index[0]);
     // struct xsave buf[3];
     //             struct fpu_state_buffer fsb;
     //             asm volatile("xsave (%0)":: "r"(&buf[0]):);

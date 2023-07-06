@@ -36,7 +36,7 @@ else
 endif
 
 VPATH = src
-SRC = main.c vmx.c pci.c uefi.c
+SRC = src/main.c vmx.c pci.c uefi.c
 main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
