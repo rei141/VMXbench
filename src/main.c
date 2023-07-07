@@ -2411,14 +2411,19 @@ EfiMain(
     // vmwrite(0x401e,vmread(0x401e)|1<<15);
     // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
     wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
-    wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_LO 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_LO);
-    wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_HI 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_HI);
-    wprintf(L"VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x;\n", vmread(0x401e)&VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
+    // wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_LO 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_LO);
+    // wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_HI 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_HI);
+    // wprintf(L"VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x;\n", vmread(0x401e)&VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
     
     if (vmread(0x401e) & (1 << 13))
         wprintf(L" vmfunc enable\n");
-    if (vmread(0x401e) & (1 << 1))
+    if (vmread(0x401e) & (1 << 1)){
         wprintf(L" ept enable\n");
+    }
+    else{
+        vmwrite(0x201a, 0);
+        wprintf(L" ept diable\n");
+    }
     if (vmread(0x401e) & (1 << 20))
         wprintf(L" xsaves\n");
     // for (int i_pdpt = 0; i_pdpt < 512; ++i_pdpt)
