@@ -24,7 +24,7 @@ QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
 	-m 1024 -smp 2\
     -object memory-backend-file,size=1M,share=on,mem-path=/dev/shm/ivmshm,id=hostmem \
     -device ivshmem-plain,memdev=hostmem \
-	-bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
+	-bios /usr/share/ovmf/OVMF.fd  -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
 # QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
@@ -48,17 +48,24 @@ main.efi: $(SRC)
 
 all: main.efi
 
-qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
+qemu: image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
 	sudo modprobe -r kvm_intel;
 	sudo modprobe kvm_intel nested=1 
 	# dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
 	# 	allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
 	sudo $(QEMU) $(QEMU_OPTS)
 
-OVMF.fd:
-	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip
-	unzip OVMF-X64-r15214.zip OVMF.fd
-	rm OVMF-X64-r15214.zip
+# qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
+# 	sudo modprobe -r kvm_intel;
+# 	sudo modprobe kvm_intel nested=1 
+# 	# dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
+# 	# 	allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
+# 	sudo $(QEMU) $(QEMU_OPTS)
+
+# OVMF.fd:
+# 	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip
+# 	unzip OVMF-X64-r15214.zip OVMF.fd
+# 	rm OVMF-X64-r15214.zip
 
 image/EFI/BOOT/BOOTX64.EFI: main.efi
 	mkdir -p image/EFI/BOOT

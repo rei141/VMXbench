@@ -1864,16 +1864,44 @@ uint64_t *SetupIdentityPageTable()
 
 struct hv_enlightened_vmcs *current_evmcs;
 // int num_device;
-EFI_STATUS
-EFIAPI
-EfiMain(
-    IN EFI_HANDLE ImageHandle,
-    IN EFI_SYSTEM_TABLE *_SystemTable)
+// EFI_STATUS
+// EFIAPI
+// EfiMain(
+//     IN EFI_HANDLE ImageHandle,
+//     IN EFI_SYSTEM_TABLE *_SystemTable)
+EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE *_SystemTable)
 {
     uint32_t error;
     struct registers regs;
 
     SystemTable = _SystemTable;
+
+	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
+	struct EFI_MP_SERVICES_PROTOCOL *msp;
+	unsigned long long status;
+	unsigned short str[1024];
+    wprintf(L"SystemTable %x\n", *SystemTable);
+    wprintf(L"SystemTable %x\n", SystemTable);
+	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
+		while (1);
+	}
+
+	unsigned long long nop, noep;
+	status = msp->GetNumberOfProcessors(msp, &nop, &noep);
+	if (!status) {
+		wprintf(L"nop, noep: ", SystemTable);
+		wprintf(int_to_unicode(nop, 2, str), SystemTable);
+		wprintf(L", ", SystemTable);
+		wprintf(int_to_unicode(noep, 2, str), SystemTable);
+		wprintf(L"\r\n", SystemTable);
+	} else {
+		wprintf(L"error: msp->GetNumberOfProcessors: status=0x", SystemTable);
+		wprintf(int_to_unicode_hex(status, 16, str), SystemTable);
+		wprintf(L"\r\n", SystemTable);
+		while (1);
+	}
 
     vmcs_num = sizeof(vmcs_index) / sizeof(vmcs_index[0]);
     // struct xsave buf[3];

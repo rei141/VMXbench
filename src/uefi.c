@@ -106,3 +106,104 @@ void wprintf (const CHAR16 *format, ...)
     putchar_buffered(L'\0');
     __builtin_va_end(va_list);
 }
+
+
+unsigned short *int_to_unicode(long long val, unsigned char num_digits, unsigned short str[])
+{
+	unsigned char digits_base = 0;
+	char i;
+
+	if (val < 0) {
+		str[digits_base++] = L'-';
+		val *= -1;
+	}
+
+	for (i = num_digits - 1; i >= 0; i--) {
+		str[digits_base + i] = L'0' + (val % 10);
+		val /= 10;
+	}
+
+	str[digits_base + num_digits] = L'\0';
+
+	return str;
+}
+
+unsigned short *int_to_unicode_hex(unsigned long long val, unsigned char num_digits, unsigned short str[])
+{
+	short i;
+	unsigned short v;
+
+	for (i = num_digits - 1; i >= 0; i--) {
+		v = (unsigned short)(val & 0x0f);
+		if (v < 0xa)
+			str[i] = L'0' + v;
+		else
+			str[i] = L'A' + (v - 0xa);
+		val >>= 4;
+	}
+
+	str[num_digits] = L'\0';
+
+	return str;
+}
+
+unsigned short *ascii_to_unicode(char ascii[], unsigned char num_digits, unsigned short str[])
+{
+	unsigned char i;
+
+	for (i = 0; i < num_digits; i++) {
+		if (ascii[i] == '\0') {
+			break;
+		}
+
+		if ('0' <= ascii[i] && ascii[i] <= '9')
+			str[i] = L'0' + (ascii[i] - '0');
+		else if ('A' <= ascii[i] && ascii[i] <= 'Z')
+			str[i] = L'A' + (ascii[i] - 'A');
+		else if ('a' <= ascii[i] && ascii[i] <= 'z')
+			str[i] = L'a' + (ascii[i] - 'a');
+		else {
+			switch (ascii[i]) {
+			case ' ':
+				str[i] = L' ';
+				break;
+			case '-':
+				str[i] = L'-';
+				break;
+			case '+':
+				str[i] = L'+';
+				break;
+			case '*':
+				str[i] = L'*';
+				break;
+			case '/':
+				str[i] = L'/';
+				break;
+			case '&':
+				str[i] = L'&';
+				break;
+			case '|':
+				str[i] = L'|';
+				break;
+			case '%':
+				str[i] = L'%';
+				break;
+			case '#':
+				str[i] = L'#';
+				break;
+			case '!':
+				str[i] = L'!';
+				break;
+			case '\r':
+				str[i] = L'\r';
+				break;
+			case '\n':
+				str[i] = L'\n';
+				break;
+			}
+		}
+	}
+
+	str[i] = L'\0';
+	return str;
+}
