@@ -1863,6 +1863,38 @@ uint64_t *SetupIdentityPageTable()
 // uint64_t page_dir[512] __attribute__((aligned(0x1000)));  // must be aligned to page boundary
 
 struct hv_enlightened_vmcs *current_evmcs;
+
+void ap_main(void *_SystemTable)
+{
+	unsigned short str[1024];
+	struct EFI_SYSTEM_TABLE *SystemTable = _SystemTable;
+
+	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
+	struct EFI_MP_SERVICES_PROTOCOL *msp;
+	unsigned long long status;
+	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
+		while (1);
+	}
+	unsigned long long pnum;
+	status = msp->WhoAmI(msp, &pnum);
+	if (status) {
+		wprintf(L"error: msp->WhoAmI\r\n", SystemTable);
+		while (1);
+	}
+	wprintf(L"ProcessorNumber: 0x", SystemTable);
+	wprintf(int_to_unicode_hex(pnum, 16, str), SystemTable);
+	wprintf(L"\r\n", SystemTable);
+
+	while (1) {
+        if (get32b(0x10) == 0xdeadbeef) {
+            write32b(0x10,0);
+        }
+        write32b(0x10,0xdeadbeef);
+    }
+}
+
 // int num_device;
 // EFI_STATUS
 // EFIAPI
@@ -1880,12 +1912,10 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
 	struct EFI_MP_SERVICES_PROTOCOL *msp;
 	unsigned long long status;
 	unsigned short str[1024];
-    wprintf(L"SystemTable %x\n", *SystemTable);
-    wprintf(L"SystemTable %x\n", SystemTable);
 	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
 	if (status) {
 		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
-		while (1);
+        goto exit;
 	}
 
 	unsigned long long nop, noep;
@@ -1897,10 +1927,20 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
 		wprintf(int_to_unicode(noep, 2, str), SystemTable);
 		wprintf(L"\r\n", SystemTable);
 	} else {
-		wprintf(L"error: msp->GetNumberOfProcessors: status=0x", SystemTable);
-		wprintf(int_to_unicode_hex(status, 16, str), SystemTable);
-		wprintf(L"\r\n", SystemTable);
-		while (1);
+		wprintf(L"error: msp->GetNumberOfProcessors");
+        goto exit;
+	}
+
+    void *Event;
+    status = SystemTable->BootServices->CreateEvent(0, TPL_NOTIFY, NULL, NULL, &Event);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->CreateEvent\r\n");
+        goto exit;
+	}
+	status = msp->StartupThisAP(msp, ap_main, 1, Event, 0, SystemTable, NULL);
+	if (status) {
+		wprintf(L"error: msp->StartupAllAPs\r\n", SystemTable);
+        goto exit;
 	}
 
     vmcs_num = sizeof(vmcs_index) / sizeof(vmcs_index[0]);
@@ -1932,6 +1972,8 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
     }
     uintptr_t bar2 = ReadBar(0, ivshm_dev, 0, 2);
     wprintf(L"bar2:0x%x\r\n", bar2);
+    bar2 &= 0xFFFFFFF0;
+    bar2 |= 0xc;
     input_buf = (void *)(bar2);
     input_buf[QEMU_READY] = 1;
     input_buf[VMCS_READY] = 0;
@@ -2034,7 +2076,6 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
     // initialize VMCS
     wprintf(L"Initialize VMCS\r\n");
 
-    __builtin_memset(vmcs, 0, 4096);
     ptr = (uint32_t *)vmcs;
     ptr[0] = revision_id;
     if (!current_evmcs)

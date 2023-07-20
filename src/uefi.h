@@ -45,6 +45,8 @@ typedef void *EFI_HANDLE;
 #define EFI_FILE_ARCHIVE	0x0000000000000020
 #define EFI_FILE_VALID_ATTR	0x0000000000000037
 
+#define TPL_NOTIFY   16
+
 typedef struct EFI_INPUT_KEY {
 	unsigned short ScanCode;
 	unsigned short UnicodeChar;
@@ -71,7 +73,14 @@ typedef struct EFI_SYSTEM_TABLE {
 	char _buf3[24];
 	struct EFI_BOOT_SERVICES {
 		char _buf1[24];
-		char _buf2[296];
+		char _buf2[56];
+		unsigned long long (*CreateEvent)(
+			unsigned int Type,
+			unsigned long long NotifyTpl,
+			void (*NotifyFunction)(void *Event, void *Context),
+			void *NotifyContext,
+			void *Event);
+		char _buf3[232];
 		unsigned long long (*LocateProtocol)(struct EFI_GUID *, void *, void **);
 	} *BootServices;
 } EFI_SYSTEM_TABLE;
