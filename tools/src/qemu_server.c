@@ -254,20 +254,20 @@ int main(int argc, char** argv) {
                 // printf("%d\n", i);
             }
 
-            if(ivmshm[1010]%2){
-                strcat(cpu_flags,",");
-                strcat(cpu_flags,"hv-passthrough=off");
-            }
-            else{
+            // if(ivmshm[1010]%2){
+            //     strcat(cpu_flags,",");
+            //     strcat(cpu_flags,"hv-passthrough=off");
+            // }
+            // else{
                 strcat(cpu_flags,",");
                 strcat(cpu_flags,"hv-passthrough=on");
                 // printf("!!! hv on\n");
-            }
+            // }
                 char * arg[] = {path_config->qemu_path, "afl_bitmap", "-nodefaults", "-enable-kvm",\
                 "-machine", "accel=kvm","-cpu", cpu_flags, "-m", "1024", "-smp", "2",\
                 "-object", shm_option,\
                 "-device", "ivshmem-plain,memdev=hostmem",\
-                "-bios" ,"OVMF.fd", "-hda",\
+                "-bios" ,"/usr/share/ovmf/OVMF.fd", "-hda",\
                 "json:{ \"fat-type\": 0, \"dir\": \"image\", \"driver\": \"vvfat\", \"floppy\": false, \"rw\": true }", "-nographic" ,"-serial" ,"mon:stdio", "-no-reboot",
                 NULL};
             if (config->bitmap_name){

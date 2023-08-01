@@ -86,6 +86,7 @@ int vmcs_num;
 
 #define INPUT_READY 8000
 #define EXEC_DONE 8001
+#define FUZZ_AP 8003
 #define QEMU_READY 8004
 #define VMCS_READY 8005
 
@@ -914,6 +915,8 @@ void host_entry(uint64_t arg)
         // while(1){
         if (loop_count != 1)
             input_buf[EXEC_DONE] = 1;
+
+        input_buf[FUZZ_AP] = 0;
 // {
             // invept_t inv;
 //         uint64_t eptp = (uint64_t)pml4_table;
@@ -1377,6 +1380,7 @@ uint64_t aa =  0x4000;
             wprintf(L"GUEST STATE ERROR %0d\r\n", qualification);
             wprintf(L"GUEST STATE ERROR %0d\r\n", is_error);
         }
+        input_buf[FUZZ_AP] = 1;
         // VMCS_32BIT_GUEST_INTERRUPTIBILITY_STATE
             // wprintf(L"vmwrite(0x4824, 0x%x);\n", vmread(0x4824));
             // wprintf(L"vmwrite(0x4826, 0x%x);\n", vmread(0x4826));
@@ -1874,24 +1878,25 @@ void ap_main(void *_SystemTable)
 	unsigned long long status;
 	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
 	if (status) {
-		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n");
 		while (1);
 	}
 	unsigned long long pnum;
 	status = msp->WhoAmI(msp, &pnum);
 	if (status) {
-		wprintf(L"error: msp->WhoAmI\r\n", SystemTable);
+		wprintf(L"error: msp->WhoAmI\r\n");
 		while (1);
 	}
-	wprintf(L"ProcessorNumber: 0x", SystemTable);
-	wprintf(int_to_unicode_hex(pnum, 16, str), SystemTable);
-	wprintf(L"\r\n", SystemTable);
+	wprintf(L"ProcessorNumber: 0x%x\r\n", pnum);
 
 	while (1) {
-        if (get32b(0x10) == 0xdeadbeef) {
-            write32b(0x10,0);
+        if(input_buf[FUZZ_AP] != 0){
+            int index = vmcs_index[get16b(0x500) % vmcs_num]; // at 0x500 byte
+            uint64_t value = vmread(index);
+            for(int i = 0; i < 64; i++){
+                vmwrite(index, value ^ (1ULL << i));
+            }
         }
-        write32b(0x10,0xdeadbeef);
     }
 }
 
@@ -1907,41 +1912,6 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
     struct registers regs;
 
     SystemTable = _SystemTable;
-
-	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
-	struct EFI_MP_SERVICES_PROTOCOL *msp;
-	unsigned long long status;
-	unsigned short str[1024];
-	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
-	if (status) {
-		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
-        goto exit;
-	}
-
-	unsigned long long nop, noep;
-	status = msp->GetNumberOfProcessors(msp, &nop, &noep);
-	if (!status) {
-		wprintf(L"nop, noep: ", SystemTable);
-		wprintf(int_to_unicode(nop, 2, str), SystemTable);
-		wprintf(L", ", SystemTable);
-		wprintf(int_to_unicode(noep, 2, str), SystemTable);
-		wprintf(L"\r\n", SystemTable);
-	} else {
-		wprintf(L"error: msp->GetNumberOfProcessors");
-        goto exit;
-	}
-
-    void *Event;
-    status = SystemTable->BootServices->CreateEvent(0, TPL_NOTIFY, NULL, NULL, &Event);
-	if (status) {
-		wprintf(L"error: SystemTable->BootServices->CreateEvent\r\n");
-        goto exit;
-	}
-	status = msp->StartupThisAP(msp, ap_main, 1, Event, 0, SystemTable, NULL);
-	if (status) {
-		wprintf(L"error: msp->StartupAllAPs\r\n", SystemTable);
-        goto exit;
-	}
 
     vmcs_num = sizeof(vmcs_index) / sizeof(vmcs_index[0]);
     // struct xsave buf[3];
@@ -1977,6 +1947,42 @@ EFI_STATUS EfiMain(void *ImageHandle __attribute__ ((unused)), EFI_SYSTEM_TABLE 
     input_buf = (void *)(bar2);
     input_buf[QEMU_READY] = 1;
     input_buf[VMCS_READY] = 0;
+    input_buf[FUZZ_AP] = 0;
+
+	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
+	struct EFI_MP_SERVICES_PROTOCOL *msp;
+	unsigned long long status;
+	unsigned short str[1024];
+	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n");
+        goto exit;
+	}
+
+	unsigned long long nop, noep;
+	status = msp->GetNumberOfProcessors(msp, &nop, &noep);
+	if (!status) {
+		wprintf(L"nop, noep: ", SystemTable);
+		wprintf(int_to_unicode(nop, 2, str), SystemTable);
+		wprintf(L", ", SystemTable);
+		wprintf(int_to_unicode(noep, 2, str), SystemTable);
+		wprintf(L"\r\n", SystemTable);
+	} else {
+		wprintf(L"error: msp->GetNumberOfProcessors");
+        goto exit;
+	}
+
+    void *Event;
+    status = SystemTable->BootServices->CreateEvent(0, TPL_NOTIFY, NULL, NULL, &Event);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->CreateEvent\r\n");
+        goto exit;
+	}
+	status = msp->StartupThisAP(msp, ap_main, 1, Event, 0, SystemTable, NULL);
+	if (status) {
+		wprintf(L"error: msp->StartupAllAPs\r\n");
+        goto exit;
+	}
 
     uint32_t ecx, ebx, edx;
     uint32_t eax;
