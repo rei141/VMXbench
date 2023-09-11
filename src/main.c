@@ -1637,6 +1637,7 @@ struct xsave {
 };
 _Noreturn void guest_entry(void)
 {
+            vmcall(1);
 // rdmsr(0x48a);
     // vmread(0xffffffff);
     // vmread(0x20000);
@@ -1885,7 +1886,7 @@ EfiMain(
     uint8_t ivshm_dev = 0;
     uint8_t dev = 0;
     ScanAllBus();
-    wprintf(L"device 0x%x\n",num_device);
+    wprintf(L"device 0x%x\r\n",num_device);
     for (int i = 0; i < num_device; i++){
         // wprintf(L"device %d: 0x%x, 0x%x\n",i,devices[i].bus,devices[i].function);
         for (dev = 0; dev < 32; dev++)
@@ -1916,10 +1917,10 @@ EfiMain(
                  :);
     wprintf(L" ecx: 0x%x", ecx);
     wprintf(L" ebx: 0x%x", ebx);
-    wprintf(L" edx: 0x%x\n", edx);
+    wprintf(L" edx: 0x%x\r\n", edx);
     if (ebx == 0x7263694D && ecx == 0x666F736F && edx == 0x53562074)
     { // Microsoft SV?
-        wprintf(L" evmcs enable\n");
+        wprintf(L" evmcs enable\r\n");
         uint64_t vp_addr = (uint64_t)vp_assist | 0x1;
         wrmsr(0x40000073, vp_addr);
         current_vp_assist = (void *)vp_assist;
@@ -1943,7 +1944,7 @@ EfiMain(
                  : "=c"(ecx)
                  : "a"(1)
                  : "ebx", "edx");
-    wprintf(L"cpuid(eax=1): 0x%x\n", ecx);
+    wprintf(L"cpuid(eax=1): 0x%x\r\n", ecx);
 
     if ((ecx & 0x20) == 0) // CPUID.1:ECX.VMX[bit 5] != 1
         goto error_vmx_not_supported;
@@ -1980,10 +1981,10 @@ EfiMain(
     asm volatile("mov %0, %%cr0" ::"r"(regs.cr0));
     asm volatile("mov %%cr4, %0"
                  : "=r"(regs.cr4));
-    wprintf(L" cr4 0x%x\n", regs.cr4);
+    wprintf(L" cr4 0x%x\r\n", regs.cr4);
     regs.cr4 = apply_fixed_bits(regs.cr4, 0x488, 0x489);
     asm volatile("mov %0, %%cr4" ::"r"(regs.cr4));
-    wprintf(L" cr4 0x%x\n", regs.cr4);
+    wprintf(L" cr4 0x%x\r\n", regs.cr4);
 
     // enter VMX operation
     wprintf(L"Enter VMX operation\r\n");
@@ -2082,7 +2083,7 @@ EfiMain(
     vmwrite(0x2802, 0); // Guest IA32_DEBUGCTL
     regs.ia32_efer = rdmsr(0xC0000080);
     vmwrite_gh(0x2806, 0x2c02, regs.ia32_efer); // IA32_EFER
-    wprintf(L" ia32_efer 0x%x\n", regs.ia32_efer);
+    wprintf(L" ia32_efer 0x%x\r\n", regs.ia32_efer);
     // 32-Bit Guest and Host State Fields
     asm volatile("sgdt %0"
                  : "=m"(regs.gdt));
@@ -2130,8 +2131,8 @@ EfiMain(
     // vmwrite(0x6c00, regs.cr0);
     vmwrite_gh(0x6802, 0x6c02, regs.cr3);
     vmwrite_gh(0x6804, 0x6c04, regs.cr4);
-    wprintf(L" cr3 0x%x\n", regs.cr3);
-    wprintf(L" cr0 pageing 0x%x\n", regs.cr0 >> 31);
+    wprintf(L" cr3 0x%x\r\n", regs.cr3);
+    wprintf(L" cr0 pageing 0x%x\r\n", regs.cr0 >> 31);
 
     // wprintf(L"cr0 %0x, cr4 %0x\r\n", regs.cr0,regs.cr4);
 
@@ -2410,22 +2411,22 @@ EfiMain(
     // wprintf(L"vmwrite(0x4000, 0x%x);\n",vmread(0x4000));
     // vmwrite(0x401e,vmread(0x401e)|1<<15);
     // wprintf(L"vmwrite(0x4002, 0x%x);\n", vmread(0x4002));
-    wprintf(L"vmwrite(0x401e, 0x%x);\n", vmread(0x401e));
+    wprintf(L"vmwrite(0x401e, 0x%x);\r\n", vmread(0x401e));
     // wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_LO 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_LO);
     // wprintf(L"VMX_MSR_VMX_PROCBASED_CTRLS2_HI 0x%x;\n", VMX_MSR_VMX_PROCBASED_CTRLS2_HI);
     // wprintf(L"VMX_VM_EXEC_CTRL3_VMCS_SHADOWING 0x%x;\n", vmread(0x401e)&VMX_VM_EXEC_CTRL3_VMCS_SHADOWING);
     
     if (vmread(0x401e) & (1 << 13))
-        wprintf(L" vmfunc enable\n");
+        wprintf(L" vmfunc enable\r\n");
     if (vmread(0x401e) & (1 << 1)){
-        wprintf(L" ept enable\n");
+        wprintf(L" ept enable\r\n");
     }
     else{
         vmwrite(0x201a, 0);
-        wprintf(L" ept diable\n");
+        wprintf(L" ept diable\r\n");
     }
     if (vmread(0x401e) & (1 << 20))
-        wprintf(L" xsaves\n");
+        wprintf(L" xsaves\r\n");
     // for (int i_pdpt = 0; i_pdpt < 512; ++i_pdpt)
     // {
     //     pdp_table[i_pdpt] = (uint64_t)&page_directory[i_pdpt] | 0x407;
@@ -2487,7 +2488,7 @@ EfiMain(
     // wprintf(L"vmwrite(0x4016, 0x%x);\n", vmread(0x4016));
 // rdmsr(0x48a);
 // vmwrite(0x482e,0);
-    wprintf(L"vmwrite(0x201a, 0x%x);\n", vmread(0x201a));
+    wprintf(L"vmwrite(0x201a, 0x%x);\r\n", vmread(0x201a));
         // vmwrite(0x201a, 0x0000005e);
         // vmwrite(0x201a, 0x1000005e);
         // vmwrite(0x201a, 0x2000005e);

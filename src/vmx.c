@@ -570,7 +570,6 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
      }
   }
 #endif // BX_SUPPORT_VMX >= 2
-
   if (vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_VIRTUALIZE_APIC_ACCESSES) {
      vm.apic_access_page = (bx_phy_address) vmread(VMCS_64BIT_CONTROL_APIC_ACCESS_ADDR);
      if (! IsValidPageAlignedPhyAddr(vm.apic_access_page)) {
@@ -629,12 +628,12 @@ enum VMX_error_code VMenterLoadCheckVmControls(void)
     vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS, vm.vmfunc_ctrls);
   }
   // // wprintf(L"VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE 0x%x\nvm.vmfunc_ctrls 0x%x\n",vm.vmexec_ctrls3&VMX_VM_EXEC_CTRL3_VMFUNC_ENABLE,vm.vmfunc_ctrls);
-  if (vm.vmfunc_ctrls & ~VMX_VMFUNC_CTRL1_SUPPORTED_BITS) {
-     // wprintf(L"VMFAIL: VMCS VM Functions control reserved bits set\n");
-     vm.vmfunc_ctrls &= VMX_VMFUNC_CTRL1_SUPPORTED_BITS;
-     vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS,vm.vmfunc_ctrls);
-   //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
-  }
+  // if (vm.vmfunc_ctrls & ~VMX_VMFUNC_CTRL1_SUPPORTED_BITS) {
+  //    // wprintf(L"VMFAIL: VMCS VM Functions control reserved bits set\n");
+  //    vm.vmfunc_ctrls &= VMX_VMFUNC_CTRL1_SUPPORTED_BITS;
+  //    vmwrite(VMCS_64BIT_CONTROL_VMFUNC_CTRLS,vm.vmfunc_ctrls);
+  //  //   return VMXERR_VMENTRY_INVALID_VM_CONTROL_FIELD;
+  // }
 
   if (vm.vmfunc_ctrls & VMX_VMFUNC_EPTP_SWITCHING_MASK) {
      if ((vm.vmexec_ctrls3 & VMX_VM_EXEC_CTRL3_EPT_ENABLE) == 0) {
