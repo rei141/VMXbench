@@ -22,7 +22,7 @@ typedef void *EFI_HANDLE;
 //   EFI_CONFIGURATION_TABLE           *ConfigurationTable;
 // } EFI_SYSTEM_TABLE;
 
-#define NULL		(void *)0
+// #define NULL		(void *)0
 #define EFIERR(a)	(0x8000000000000000 | a)
 #define EFI_SUCCESS	0
 #define EFI_INVALID_PARAMETER	EFIERR(2)

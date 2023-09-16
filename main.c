@@ -379,6 +379,32 @@ char guest_stack[4096] __attribute__ ((aligned (4096)));
 char tss[4096] __attribute__ ((aligned (4096)));
 
 
+void ap_main(void *_SystemTable)
+{
+	unsigned short str[1024];
+	struct EFI_SYSTEM_TABLE *SystemTable = _SystemTable;
+
+	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
+	struct EFI_MP_SERVICES_PROTOCOL *msp;
+	unsigned long long status;
+	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
+	if (status) {
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
+		while (1);
+	}
+	unsigned long long pnum;
+	status = msp->WhoAmI(msp, &pnum);
+	if (status) {
+		wprintf(L"error: msp->WhoAmI\r\n", SystemTable);
+		while (1);
+	}
+	wprintf(L"ProcessorNumber: 0x", SystemTable);
+	wprintf(int_to_unicode_hex(pnum, 16, str), SystemTable);
+	wprintf(L"\r\n", SystemTable);
+
+	while (1);
+}
+
 EFI_STATUS
 EFIAPI
 EfiMain (
@@ -564,10 +590,51 @@ EfiMain (
     asm volatile ("pushf; pop %%rax" : "=a" (regs.rflags));
     regs.rflags &= ~0x200ULL; // clear interrupt enable flag
     vmwrite(0x6820, regs.rflags);
-    vmwrite(0x4002, vmread(0x4002) | 1<<31);
-    vmwrite(0x401e, 0x2);
-    vmwrite(0x201a, 0x4000005e);
+    // vmwrite(0x4002, vmread(0x4002) | 1<<31);
+    // vmwrite(0x401e, 0x2);
+    // vmwrite(0x201a, 0x4000005e);
 	wprintf(L"0x4826 0x%x\r\n", vmread(0x4826));
+	struct EFI_GUID msp_guid = {0x3fdda605, 0xa76e, 0x4f46, {0xad, 0x29, 0x12, 0xf4, 0x53, 0x1b, 0x3d, 0x08}};
+	struct EFI_MP_SERVICES_PROTOCOL *msp;
+	unsigned long long status;
+	unsigned short str[1024];
+    wprintf(L"SystemTable %x\n", *SystemTable);
+    wprintf(L"SystemTable %x\n", SystemTable);
+	status = SystemTable->BootServices->LocateProtocol(&msp_guid, NULL, (void **)&msp);
+	if (status) {
+		wprintf(L"error: status 0x%x\r\n", status);
+		wprintf(L"error: SystemTable->BootServices->LocateProtocol\r\n", SystemTable);
+		while (1);
+	}
+	unsigned long long nop, noep;
+	status = msp->GetNumberOfProcessors(msp, &nop, &noep);
+	if (!status) {
+		wprintf(L"nop, noep: ", SystemTable);
+		wprintf(int_to_unicode(nop, 2, str), SystemTable);
+		wprintf(L", ", SystemTable);
+		wprintf(int_to_unicode(noep, 2, str), SystemTable);
+		wprintf(L"\r\n", SystemTable);
+	} else {
+		wprintf(L"error: msp->GetNumberOfProcessors: status=0x", SystemTable);
+		wprintf(int_to_unicode_hex(status, 16, str), SystemTable);
+		wprintf(L"\r\n", SystemTable);
+		while (1);
+	}
+    EFI_EVENT Event;
+    status = SystemTable->BootServices->CreateEvent(0, TPL_NOTIFY, NULL, NULL, &Event);
+    if(status) {
+        wprintf(L"error: failed to create event: status=0x", SystemTable);
+        wprintf(int_to_unicode_hex(status, 16, str), SystemTable);
+        wprintf(L"\r\n", SystemTable);
+        while(1);
+    }   
+    status = msp->StartupThisAP(msp, ap_main, 0, Event, 0, SystemTable, NULL);
+	// status = msp->StartupAllAPs(msp, ap_main, 0, NULL, 0, SystemTable, NULL);
+	if (status) {
+		wprintf(L"error: msp->StartupAllAPs\r\n", SystemTable);
+		while (1);
+	}
+
     if (!__builtin_setjmp(env)) {
 	wprintf(L"Launch a VM\r\n");
 	asm volatile ("cli");
