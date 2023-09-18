@@ -27,7 +27,6 @@
 // #include "msr.h"
 // #define LOG_THIS BX_CPU_THIS_PTR
 #include "vmx.h"
-#include "MT.h"
 bool  in_smm = 0;
 
 uint64_t vmxonptr;
