@@ -707,36 +707,11 @@ void invalidate_vmcs(uint32_t field, uint32_t bits){
 
 void host_entry(uint64_t arg)
 {
-    // uint64_t *ptr = (uint64_t *)vmxon_region;
-    // vmxoff(/)
-    //     asm volatile ("mov 0, %eax");
-    //     asm volatile ("mov 1, %ecx");
-    // asm volatile ("vmfunc":::);
-    // asm volatile ("vmxoff");
-    // asm volatile ("vmxon %0" :: "m" (ptr));
-
-    // vmptrld(ptr);
-    // vmptrld(&vmxonptr);
-    // vmptrld(&vmxonptr);
     // __builtin_longjmp(env, 1);
     uint64_t reason = vmread(0x4402);
     uint64_t rip = vmread(0x681E); // Guest RIP
     uint64_t len = vmread(0x440C); // VM-exit instruction length
-    // if(reason == 18){
-    //     if(arg>1){
-    //         wprintf(L" exec %d\r\n",arg);
-    //         vmwrite(0x681e, rip+len);
-    //         asm volatile("vmresume\r\n\t");
-    //     }
-    // }
-    // if(current_evmcs){
-    //     evmcs_vmread(0x4402, &reason);
-    //     evmcs_vmread(0x681E, &rip);
-    //     evmcs_vmread(0x440C, &len);
-    // }current_evmcs
-    // asm volatile ("vmclear %0"
-	// 	  : 
-    //       : "m"(current_evmcs));
+
     wprintf(L"exit reason = %d, rip = 0x%x, len = %d\r\n", reason, rip, len);
     // wprintf(L"vmwrite(0x2004, 0x%x);\r\n", vmread(0x2004));
     if (reason == 18)
@@ -921,12 +896,14 @@ void host_entry(uint64_t arg)
     // }
         loop_count++;
         wprintf(L"%d\r\n", loop_count);
-        if (loop_count > 0)
+        if (loop_count > 10)
             __builtin_longjmp(env, 1);
+
 
         uint16_t is_input_ready = 0;
         uint16_t windex;
         uint64_t wvalue;
+        if (loop_count == 1) {
         // if (1) {
         // while(1){
         // if (loop_count != 1)
@@ -1364,6 +1341,8 @@ uint64_t aa =  0x4000;
         //     write64b(0x3000 + i*8, v);
         //     // wprintf(L"%d: 0x%x\r\n", i, v);
         // }
+        index_count = 0x500;
+        }
 
         enum VMX_error_code vmentry_check_failed = VMenterLoadCheckVmControls();
         if (!vmentry_check_failed)
@@ -1425,7 +1404,6 @@ uint64_t aa =  0x4000;
         //     }
         // }
 
-        index_count = 0x500;
         windex = vmcs_index[get16b(index_count) % vmcs_num]; // at 0x500 byte
         index_count += 2;
         uint32_t bits;
@@ -1519,10 +1497,13 @@ uint64_t aa =  0x4000;
         // input_buf[0]=0;
         // wprintf(L"  0x%x",(((VMX_MSR_MISC >> 6)&0x7) & 0x1));
         wprintf(L"entry 0x%x\r\n", vmread(0x681e));
-        for (int i = 0; i < vmcs_num; i++)
-        {
-            wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
-        }
+        // for (int i = 0; i < vmcs_num; i++)
+        // {
+        //     wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
+        // }
+        vmwrite(0x2800, 0xffffffffffffffff);
+    vmwrite(0x4826, 0x0); // reboot
+
         asm volatile("vmresume\r\n\t");
         wprintf(L"VMRESUME failed: \r\n");
 
@@ -1680,7 +1661,7 @@ _Noreturn void guest_entry(void)
     // asm volatile ("mov 0xffffffff, %eax\r\n");
     // asm volatile ("mov 0xffffffff, %edx\r\n");
     // asm volatile("tpause %0"::"r"(a));
-            vmcall(1);
+    // vmcall(1);
     while (1)
     {
 
@@ -1718,8 +1699,8 @@ _Noreturn void guest_entry(void)
         // vmread(0xffffffff);
         // vmwrite(0xffffffff,0);
         //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-uint64_t *v = (uint64_t *)0x3fffffffe001;
-uint64_t aa =  0x4000;
+        uint64_t *v = (uint64_t *)0x3fffffffe001;
+        uint64_t aa =  0x4000;
 
 		// asm volatile ("vmread %1, %0"
 		// 	: "=m" (v)
@@ -1776,12 +1757,6 @@ uint64_t aa =  0x4000;
 
         vmcall(1);
     }
-
-    // for(int i = 0; i < 200; i++){
-    // vmcall(1);
-    // l++;
-    // }
-    // __builtin_longjmp(env, 1);
 
     vmcall(0);
     while (1)
@@ -2458,237 +2433,15 @@ EfiMain(
         wprintf(L" ept diable\r\n");
     }
     if (vmread(0x401e) & (1 << 20))
-        wprintf(L" xsaves\r\n");
-    // for (int i_pdpt = 0; i_pdpt < 512; ++i_pdpt)
-    // {
-    //     pdp_table[i_pdpt] = (uint64_t)&page_directory[i_pdpt] | 0x407;
-    //     for (int i_pd = 0; i_pd < 512; ++i_pd)
-    //     {
-    //         page_directory[i_pdpt][i_pd] = (i_pdpt * kPageSize1G + i_pd * kPageSize2M) | 0x4f0;
-    //     }
-    // }
-    // uint64_t a = rdmsr(0x00000da0);
-    //  wrmsr(0x00000570,1);0x00000da0
-    // asm volatile ("vmfunc":::);
-    // uint64_t a = rdmsr(0x1b);
-    // wrmsr(0x1b,a|1<<11);
-    // wrmsr(0x1b,a&~(1<<11));
-        // vmwrite(0x4826, 1); // HLT
-        // vmwrite(0x4826, 3); // SIPI
-    // //     wprintf(L" vmentry x64 0x%x\r\n",vmread(0x00004012)>>9 &1);
-    //     wprintf(L" a%x\r\n",a);
+        wprintf(L" xsaves enable\r\n");
 
-    // vmwrite(0x6804, vmread(6804)&~(1<<5));
-    // ptr = (uint32_t *)vmcs;
-    // ptr[0] = 0x1;
-    // (void)rdmsr(0x48a);
-    // for debug
-    // for(uint32_t i = 0; i < 16; i++){
-    //     uint64_t ans = rdmsr(0x480+i);
-    //     wprintf(L"msr 0x%x : 0x%x\r\n", 0x480+i,ans);
-    // }
-    // for(int i = 0; i<11; i++){
-    //     uint32_t a =0x40000000;
-    //     asm volatile ("cpuid" : "=a"(a),"=c" (ecx),"=b" (ebx),"=d" (edx) :"a"(a+i): );
-    //     wprintf(L"cpuid(0x%x)\r\n",0x40000000+i,a);
-    //     wprintf(L" eax: 0x%x",a);
-    //     wprintf(L" ecx: 0x%x",ecx);
-    //     wprintf(L" ebx: 0x%x",ebx);
-    //     wprintf(L" edx: 0x%x\r\n",edx);
-    // }
-    // for(int i = 0; i<11; i++){
-    //     uint32_t a =0x40000080;
-    //     asm volatile ("cpuid" : "=a"(a),"=c" (ecx),"=b" (ebx),"=d" (edx) :"a"(a+i): );
-    //     wprintf(L"cpuid(0x%x)\r\n",0x40000080+i,a);
-    //     wprintf(L" eax: 0x%x",a);
-    //     wprintf(L" ecx: 0x%x",ecx);
-    //     wprintf(L" ebx: 0x%x",ebx);
-    //     wprintf(L" edx: 0x%x\r\n",edx);
-    // }
-    // wprintf(L"msr 0xc0000080 0x%x\r\n", rdmsr(0xc0000080));
-    // wrmsr(0xc0000080,0x400);
-    // wprintf(L"msr 0xc0000080 0x%x\r\n", rdmsr(0xc0000080));
-    // wprintf(L"vmwrite(0x2806, 0x%x);\r\n", vmread(0x2806));
-    // wprintf(L"vmwrite(0x6800, 0x%x);\r\n", vmread(0x6800));
-    // wprintf(L"vmwrite(0x681c, 0x%x);\r\n", vmread(0x681c));
-    // wprintf(L"vmwrite(0x6c14, 0x%x);\r\n", vmread(0x6c14));
-    // wprintf(L"vmwrite(0x812, 0x%x);\r\n", vmread(0x812));
-    // loop_count[0]=-1;
-    // wprintf(L"PAE 0x%x\r\n", vmread(0x6804)>>5 &1);
-    // vmwrite(0x6804, vmread(0x6804)&~(1<<5));
-    // wprintf(L"PAE 0x%x\r\n", vmread(0x6804)>>5 &1);
-    // wprintf(L"vmwrite(0x4016, 0x%x);\r\n", vmread(0x4016));
-// rdmsr(0x48a);
-// vmwrite(0x482e,0);
     wprintf(L"vmwrite(0x201a, 0x%x);\r\n", vmread(0x201a));
-        // vmwrite(0x201a, 0x0000005e);
-        // vmwrite(0x201a, 0x1000005e);
-        // vmwrite(0x201a, 0x2000005e);
-        // vmwrite(0x201a, 0x3000005e);
-        // vmwrite(0x201a, 0x4000005e); // bug
-        // vmwrite(0x201a, 0x5000005e); // bug
-        // vmwrite(0x201a, 0x6000005e); // bug
-        // vmwrite(0x201a, 0x7000005e); // bug
-        // vmwrite(0x201a, 0x8000005e); 
-        // vmwrite(0x201a, 0x9000005e); // bug
-        // vmwrite(0x201a, 0xa000005e); // bug
-        // vmwrite(0x201a, 0xb000005e); // bug
-        // vmwrite(0x201a, 0xc000005e); // bug
-        // vmwrite(0x201a, 0xd000005e); // bug
-        // vmwrite(0x201a, 0xe000005e); // bug
-        // vmwrite(0x201a, 0xf000005e); // bug
-        // asm volatile("vmresume\r\n\t");
-    for (int i = 0; i < vmcs_num; i++){
-        wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
-    }
 
-vmwrite(0x2800, 0xffffffffffffffff);
-// vmwrite(0x0, 0xfb51);
-// vmwrite(0x2, 0xe787);
-// vmwrite(0x4, 0xc379);
-// vmwrite(0x800, 0xc098);
-// vmwrite(0x802, 0x66c8);
-// vmwrite(0x804, 0x3ddc);
-// vmwrite(0x806, 0xfe94);
-// vmwrite(0x808, 0xa9a0);
-// vmwrite(0x80a, 0xcc8c);
-// vmwrite(0x80c, 0xbcc1);
-// vmwrite(0x80e, 0x625a);
-// vmwrite(0x810, 0x9e3c);
-// vmwrite(0x812, 0x18);
-// vmwrite(0xc00, 0x30);
-// vmwrite(0xc02, 0x38);
-// vmwrite(0xc04, 0x30);
-// vmwrite(0xc06, 0x30);
-// vmwrite(0xc08, 0x30);
-// vmwrite(0xc0a, 0x30);
-// vmwrite(0xc0c, 0x8);
-// vmwrite(0x2000, 0x70b7e000);
-// vmwrite(0x2002, 0x7096a000);
-// vmwrite(0x2004, 0x70966000);
-// vmwrite(0x2006, 0x70977000);
-// vmwrite(0x2008, 0x70b7f000);
-// vmwrite(0x200a, 0x7097a000);
-// vmwrite(0x200c, 0x70969000);
-// vmwrite(0x200e, 0x36);
-// vmwrite(0x2010, 0x2fcc098a9d74d52);
-// vmwrite(0x2012, 0x70958000);
-// vmwrite(0x2014, 0x70971000);
-// vmwrite(0x2016, 0x7097d000);
-// vmwrite(0x2018, 0x0);
-// vmwrite(0x201a, 0x0);
-// vmwrite(0x201c, 0x12e408821d5ffdec);
-// vmwrite(0x201e, 0xc975a6dcf311ba67);
-// vmwrite(0x2020, 0x1066b762732d710a);
-// vmwrite(0x2022, 0x5af59eb694115760);
-// vmwrite(0x2024, 0x7096b000);
-// vmwrite(0x2026, 0x7096f000);
-// vmwrite(0x2028, 0x70973000);
-// vmwrite(0x202a, 0x70961000);
-// vmwrite(0x202c, 0xf11c39e9687ba752);
-// vmwrite(0x202e, 0x56);
-// vmwrite(0x2030, 0x58);
-// vmwrite(0x2032, 0xc5873fe792dca8b0);
-// vmwrite(0x2400, 0x4d25f63600bc1c0f);
-// vmwrite(0x2800, 0xffffffffffffffff);
-// vmwrite(0x2802, 0x0);
-// vmwrite(0x2804, 0xc5d23b859dfd3591);
-// vmwrite(0x2806, 0x500);
-// vmwrite(0x2808, 0x0);
-// vmwrite(0x280a, 0x0);
-// vmwrite(0x280c, 0x1000);
-// vmwrite(0x280e, 0x0);
-// vmwrite(0x2810, 0x0);
-// vmwrite(0x2812, 0x70);
-// vmwrite(0x2814, 0x0);
-// vmwrite(0x2818, 0x0);
-// vmwrite(0x2c00, 0x0);
-// vmwrite(0x2c02, 0xd00);
-// vmwrite(0x2c04, 0x0);
-// vmwrite(0x2c06, 0x0);
-// vmwrite(0x4000, 0x56);
-// vmwrite(0x4002, 0x86a967f2);
-// vmwrite(0x4004, 0x24e5916);
-// vmwrite(0x4006, 0xe2cd19e5);
-// vmwrite(0x4008, 0xb583cf8d);
-// vmwrite(0x400a, 0x0);
-// vmwrite(0x400c, 0x7befff);
-// vmwrite(0x400e, 0x61);
-// vmwrite(0x4010, 0xb5);
-// vmwrite(0x4012, 0x93ff);
-// vmwrite(0x4014, 0xa);
-// vmwrite(0x4016, 0x40cdc60);
-// vmwrite(0x4018, 0x44dd40b7);
-// vmwrite(0x401a, 0xedef993d);
-// vmwrite(0x401c, 0x8);
-// vmwrite(0x401e, 0x1);
-// vmwrite(0x4020, 0x8d23a195);
-// vmwrite(0x4022, 0xff508ce7);
-// vmwrite(0x4400, 0xc);
-// vmwrite(0x4402, 0x2c1e81f9);
-// vmwrite(0x4404, 0x78f41fd3);
-// vmwrite(0x4406, 0x231b5419);
-// vmwrite(0x4408, 0xbe25d5f1);
-// vmwrite(0x440a, 0xeebe938e);
-// vmwrite(0x440c, 0x0);
-// vmwrite(0x440e, 0xb262acd4);
-// vmwrite(0x4800, 0xc098);
-// vmwrite(0x4802, 0x66ca);
-// vmwrite(0x4804, 0x3ddc);
-// vmwrite(0x4806, 0xfe94);
-// vmwrite(0x4808, 0xa9a0);
-// vmwrite(0x480a, 0xcc8c);
-// vmwrite(0x480c, 0x0);
-// vmwrite(0x480e, 0xffff);
-// vmwrite(0x4810, 0xbb8f);
-// vmwrite(0x4812, 0x5618);
-// vmwrite(0x4814, 0x130fb);
-// vmwrite(0x4816, 0x209b);
-// vmwrite(0x4818, 0x4093);
-// vmwrite(0x481a, 0x709b);
-// vmwrite(0x481c, 0x20d3);
-// vmwrite(0x481e, 0x30d7);
-// vmwrite(0x4820, 0xa2);
-// vmwrite(0x4822, 0xcb);
-// vmwrite(0x4824, 0x0);
-vmwrite(0x4826, 0x3);
-// vmwrite(0x4828, 0x1b7c4af8);
-// vmwrite(0x482a, 0x73f1815);
-// vmwrite(0x482e, 0x0);
-// vmwrite(0x6000, 0x3f07b04d1a2588db);
-// vmwrite(0x6002, 0xdc2acab149e96971);
-// vmwrite(0x6004, 0x89f0d52f3b5485cd);
-// vmwrite(0x6006, 0x8d85bda8f7b915ce);
-// vmwrite(0x6008, 0xd78f562d473fe757);
-// vmwrite(0x600a, 0x1fc9d2903bceaf9c);
-// vmwrite(0x600c, 0x477894ea17703e2d);
-// vmwrite(0x600e, 0x95f451c391efe374);
-// vmwrite(0x6400, 0xf8376d426afd3bce);
-// vmwrite(0x6404, 0x8f9fad2e5e2af980);
-// vmwrite(0x6402, 0x4c6119dd020703f);
-// vmwrite(0x6408, 0xccf6434b4a2db623);
-// vmwrite(0x6406, 0x3ba433b5b7a6f9dd);
-// vmwrite(0x640a, 0xce9e72219cea2a82);
-// vmwrite(0x6800, 0xed49f653);
-// vmwrite(0x6802, 0x7f201000);
-// vmwrite(0x6804, 0x722f36);
-// vmwrite(0x6806, 0x0);
-// vmwrite(0x6808, 0x0);
-// vmwrite(0x680a, 0x0);
-// vmwrite(0x680c, 0x0);
-// vmwrite(0x680e, 0x0);
-// vmwrite(0x6810, 0x0);
-// vmwrite(0x6812, 0x0);
-// vmwrite(0x6814, 0x70967000);
-// vmwrite(0x6816, 0x7f1eea98);
-// vmwrite(0x6818, 0x7e82e018);
-// vmwrite(0x681a, 0xffffffff);
-// vmwrite(0x6c06, 0x0);
-// vmwrite(0x6c08, 0x0);
-// vmwrite(0x6c0a, 0x40000);
+    // for (int i = 0; i < vmcs_num; i++){
+    //     wprintf(L"vmwrite(0x%x, 0x%x);\r\n", vmcs_index[i], vmread(vmcs_index[i]));
+    // }
 
-
-
+    vmwrite(0x2800, 0xffffffffffffffff);
 
     if (!__builtin_setjmp(env))
     {
