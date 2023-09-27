@@ -4,7 +4,7 @@ set -e
 make
 
 # Create and mount the image
-qemu-img create -f raw vfat_image.img 100M
+qemu-img create -f raw vfat_image.img 50M
 mkfs.vfat vfat_image.img 
 mkdir -p mnt
 sudo mount vfat_image.img mnt

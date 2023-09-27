@@ -2142,6 +2142,8 @@ EfiMain(
     regs.rflags &= ~0x200ULL; // clear interrupt enable flag
     vmwrite(0x6820, regs.rflags);
     vmwrite(0x6820, regs.rflags);
+    vmwrite(0x2800, 0xffffffffffffffff);
+
     // vmwrite(0x4826, 0x2); // reboot
     // vmwrite(0x4826, 0x3); // crash
     wprintf(L"VMX_MSR_MISC 0x%x\r\n", VMX_MSR_MISC);

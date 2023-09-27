@@ -21,7 +21,6 @@ path_config_t * parse_config(char *path) {
     FILE *fh = fopen(path, "r");
     if (fh == NULL) {
         fprintf(stderr, "Failed to open file: %s\n", path);
-        fclose(fh);
         return NULL;
     }
     // Initialize parser

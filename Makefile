@@ -28,15 +28,8 @@ QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
 
 # QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
-NESTED=$(shell cat /sys/module/kvm_intel/parameters/nested)
-ifeq ($(NESTED),N)
-	ENABLE_NESTED=enable_nested
-else
-	ENABLE_NESTED=
-endif
-
 VPATH = src
-SRC = src/main.c vmx.c pci.c uefi.c
+SRC = src/main.c vmx.c pci.c uefi.c binc.c
 main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
@@ -48,12 +41,8 @@ main.efi: $(SRC)
 
 all: main.efi
 
-qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI $(ENABLE_NESTED)
-	sudo modprobe -r kvm_intel;
-	sudo modprobe kvm_intel nested=1 
-	# dump_invalid_vmcs=1 enlightened_vmcs=1 pml=1 enable_shadow_vmcs=1 enable_ipiv=1\
-	# 	allow_smaller_maxphyaddr=1 preemption_timer=1 sgx=1 unrestricted_guest=1 enable_apicv=1 ept=1 nested_early_check=0;
-	sudo $(QEMU) $(QEMU_OPTS)
+qemu: OVMF.fd image/EFI/BOOT/BOOTX64.EFI
+
 
 OVMF.fd:
 	wget http://downloads.sourceforge.net/project/edk2/OVMF/OVMF-X64-r15214.zip
@@ -63,16 +52,6 @@ OVMF.fd:
 image/EFI/BOOT/BOOTX64.EFI: main.efi
 	mkdir -p image/EFI/BOOT
 	ln -sf ../../../main.efi image/EFI/BOOT/BOOTX64.EFI
-
-enable_nested:
-	@echo Enabling nested virtualization in KVM ...
-	sudo modprobe -r kvm_intel;
-	sudo modprobe kvm_intel nested=1;
-
-disable_nested:
-	@echo Disabling nested virtualization in KVM ...
-	sudo modprobe -r kvm_intel;
-	sudo modprobe kvm_intel nested=0;
 
 clean:
 	rm -f main.efi OVMF.fd
