@@ -5,6 +5,7 @@ typedef struct {
     char work_dir[128];
     char covout_dir[128];
     char fuzzinput_dir[128];
+    char xen_dir[128];
 } path_config_t;
 
 
@@ -62,6 +63,9 @@ path_config_t * parse_config(char *path) {
                     } else if (strcmp(level2_key, "fuzzinput_dir") == 0) {
                         strncpy(path_config->fuzzinput_dir, (char *)event.data.scalar.value, sizeof(path_config->fuzzinput_dir) - 1);
                         path_config->fuzzinput_dir[sizeof(path_config->fuzzinput_dir) - 1] = '\0';
+                    } else if (strcmp(level2_key, "xen_dir") == 0) {
+                        strncpy(path_config->xen_dir, (char *)event.data.scalar.value, sizeof(path_config->xen_dir) - 1);
+                        path_config->xen_dir[sizeof(path_config->xen_dir) - 1] = '\0';
                     }
                 }
                 strncpy(level2_key, (char *)event.data.scalar.value, sizeof(level2_key) - 1);

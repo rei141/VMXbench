@@ -16,6 +16,8 @@
 #include <signal.h>
 // #include <process.h>
 #include <sys/mman.h>
+#include <errno.h>
+#include <ctype.h>
 #include "fuzz.h"
 #include "my_yaml.h"
 #include "args.h"
@@ -169,7 +171,7 @@ int create_binc(char *input_file, char *srcdir) {
     fprintf(f, "#endif // BINARY_DATA_H\n");
 
     fclose(f);
-
+    printf("create %s\n", header_file);
     // Write source file
     char *source_file = malloc(strlen(srcdir) + strlen(BINC_SOURCE));
     if (!source_file) {
@@ -196,17 +198,110 @@ int create_binc(char *input_file, char *srcdir) {
 
     fprintf(f, "\n};\n");
     fclose(f);
+    printf("create %s\n", source_file);
     free(data);
     free(header_file);
     free(source_file);
     return 0;
 }
+void execute_command(const char *command) {
+    int result = system(command);
+    if (result != 0) {
+        fprintf(stderr, "Failed to execute command: %s\n", command);
+        exit(EXIT_FAILURE);
+    }
+}
+char xencov_name[256];
+int get_xencov() {
+    struct timeval tv;
+    struct tm *tm;
+    char d_name[192] = {0};
+    char command[256] = {0};
+    struct stat st;
+
+    gettimeofday(&tv, NULL);
+    tm = localtime(&tv.tv_sec);
+
+    sprintf(d_name,"%s/%02d_%02d_%02d",path_config->covout_dir, tm->tm_mon+1, tm->tm_mday,tm->tm_hour);
+    if (create_directory(d_name))
+        return 1;
+
+    sprintf(xencov_name,"%s/xencov_%02d_%02d_%02d_%02d_%02d", d_name, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+    sprintf(command,"sudo xencov read > %s/xencov_%02d_%02d_%02d_%02d_%02d", d_name, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    execute_command(command);
+    return 0;
+}
+
+int ind;
+#define BITMAP_SIZE 65536 // 64kB
+
+int process_gcov_file(const char *filename, uint8_t *bitmap) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("fopen");
+        return 0;
+    }
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        char *colon_ptr = strchr(line, ':');
+        if (!colon_ptr) continue; // ":"がない場合、この行を無視
+        if(colon_ptr[-1] == '-'){
+            continue;
+        }
+
+        // ":"より左の部分を抽出
+        char left_part[256];
+        strncpy(left_part, line, colon_ptr - line);
+        left_part[colon_ptr - line] = '\0';
+        // 左部分が"#####"かどうかをチェック
+        if (strstr(left_part, "#####")) {
+            // printf("%d Line not covered\n",ind);
+            ind += 1;
+            continue;
+        }
+
+        char *ptr = left_part;
+        while (*ptr && isspace((unsigned char)*ptr)) ptr++; // 空白をスキップ
+        if (*ptr) {
+            char *end_ptr;
+            long count = strtol(ptr, &end_ptr, 10); // 数字を解析
+            if (count >= 128)
+                bitmap[ind] |= 0x80;
+            else if (count >= 32)
+                bitmap[ind] |= 0x40;
+            else if (count >= 16)
+                bitmap[ind] |= 0x20;
+            else if (count >= 8)
+                bitmap[ind] |= 0x10;
+            else if (count >= 4)
+                bitmap[ind] |= 0x08;
+            else if (count >= 3)
+                bitmap[ind] |= 0x04;
+            else if (count >= 2)
+                bitmap[ind] |= 0x02;
+            else if (count >= 1)
+                bitmap[ind] |= 0x01;
+            // printf("byte #%d = 0x%x\n", ind, bitmap[ind]);
+            ind += 1;
+        }
+        if (ind >= BITMAP_SIZE){
+            printf("index reached BITMAP_SIZE with %s", filename);
+            fclose(file);
+            return -1;
+        }
+    }
+
+    fclose(file);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     FILE *input_fp;
     int shm_fd, bitmap_fd, kvm_arch_fd, kvm_fd, err;
     uint8_t *afl_bitmap;
     config_t *config;
-
+    uint8_t buf[4096];
     int afl_shm_id;
     const char *afl_shm_id_str = getenv("__AFL_SHM_ID");
     uint8_t *afl_area_ptr = NULL;
@@ -227,23 +322,6 @@ int main(int argc, char** argv) {
             return 1;
     }
 
-
-    input_fp = fopen(config->afl_input_name, "rb");
-    if (input_fp == NULL) {
-        fprintf(stderr, "fopen failed\n");
-        return 1;
-    }
-
-    int ret = create_binc(config->afl_input_name, config->srcdir_name);
-    printf("hello\n");
-    // fread(ivmshm, sizeof(uint8_t), 4096, input_fp);
-    // if (save_input(ivmshm))
-    //     fprintf(stderr, "save_input() failed\n");
-        
-    // fclose(input_fp);
-
-    // ivmshm[INPUT_READY] = 1;
-
     // bitmap_fd = shm_open(config->bitmap_name, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     // if (bitmap_fd == -1) {
     //     fprintf(stderr, "shm_open failed\n");
@@ -261,143 +339,149 @@ int main(int argc, char** argv) {
     //     fprintf(stderr, "mmap failed\n");
     //     return 1;
     // }
-    // memset(afl_bitmap,0,65536);
 
-    // // kvm_arch_fd = shm_open("kvm_arch_coverage", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-    // // if (kvm_arch_fd == -1) {
-    // //     fprintf(stderr, "shm_open failed\n");
-    // //     return 1;
-    // // }
-    // // err = ftruncate(kvm_arch_fd, MAX_KVM_ARCH);
-    // // if(err == -1){
-    // //     fprintf(stderr, "ftruncate failed\n");
-    // //     return 1;
-    // // }
-    // // kvm_arch_coverage = (uint8_t *)mmap(NULL, MAX_KVM_ARCH,
-    // //                                 PROT_READ | PROT_WRITE, MAP_SHARED, kvm_arch_fd, 0);
-    // // if ((void *)kvm_arch_coverage == MAP_FAILED) {
-    // //     fprintf(stderr, "mmap failed\n");
-    // //     return 1;
-    // // }
+    input_fp = fopen(config->afl_input_name, "rb");
+    if (input_fp == NULL) {
+        fprintf(stderr, "fopen failed\n");
+        return 1;
+    }
+    fread(buf, sizeof(uint8_t), 4096, input_fp);
+    if (save_input(buf))
+        fprintf(stderr, "save_input() failed\n");
 
-    // // kvm_fd = shm_open("kvm_coverage", O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
-    // // if (kvm_fd == -1) {
-    // //     fprintf(stderr, "shm_open failed\n");
-    // //     return 1;
-    // // }
-    // // err = ftruncate(kvm_fd, MAX_KVM);
-    // // if(err == -1){
-    // //     fprintf(stderr, "ftruncate failed\n");
-    // //     return 1;
-    // // }
-    // // kvm_coverage = (uint8_t *)mmap(NULL, MAX_KVM,
-    // //                                 PROT_READ | PROT_WRITE, MAP_SHARED, kvm_fd, 0);
-    // // if ((void *)kvm_coverage == MAP_FAILED) {
-    // //     fprintf(stderr, "mmap failed\n");
-    // //     return 1;        
-    // // }
+    int ret = create_binc(config->afl_input_name, config->srcdir_name);
+    printf("hello\n");
+    execute_command("qemu-img create -f raw vfat_image.img 50M");
+    execute_command("mkfs.vfat vfat_image.img");
+    execute_command("mkdir -p mnt");
+    execute_command("sudo mount vfat_image.img mnt");
+    execute_command("sudo cp -Lr image/* mnt/");
+    execute_command("sudo umount mnt");
+    execute_command("sudo xencov reset");
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
 
-    // // uint64_t prev_kvm_arch_cnt=0, prev_kvm_cnt=0, kvm_arch_cnt=0, kvm_cnt=0;
-    // // int max = 0;
-    // // for(int i = 0; i < MAX_KVM; i++){
-    // //     if(i < MAX_KVM_ARCH)
-    // //         prev_kvm_arch_cnt += kvm_arch_coverage[i];
-    // //     prev_kvm_cnt += kvm_coverage[i];
-    // //     max++;
-    // // }
-    // // printf("prev : arch_cnt %ld, kvm_cnt %ld\n", prev_kvm_arch_cnt, prev_kvm_cnt);
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (pid == 0) { // 子プロセス
+        close(pipefd[0]); // 読み込み用の端を閉じる
+        dup2(pipefd[1], STDOUT_FILENO); // 標準出力をパイプにリダイレクト
+        close(pipefd[1]); // 書き込み用の端を閉じる
+
+        execlp("sudo", "sudo", "xl", "create", "my_vm.cfg", "-c", (char *)NULL);
+        perror("execlp");
+        exit(EXIT_FAILURE);
+    }
+    close(pipefd[1]); // 書き込み用の端を閉じる
+    fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
+
+    char buffer[4096];
+    int no_output_seconds = 0;
+    int total_seconds = 0;
+    int vmx_bench_found = 0;
 
 
-    // // msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-    // // int qemu_ready = ivmshm[QEMU_READY]; // qemu_ready
-    // int cnt=0;
-    // while(1){
-    //     cnt++;
-    //     if (qemu_ready != 0){
-    //         break;
-    //     }
-    //     usleep(100);
-    //     qemu_ready = ivmshm[QEMU_READY];
-    //     if(cnt > 70000){
-    //         ivmshm[INPUT_READY] = 0;
-    //         ivmshm[KILL_QEMU] = 1; // kill qemu
-    //         ivmshm[QEMU_READY] = 0;
-    //         msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-    //         // sleep(7);
-    //         printf("qemu freeze\n");
-    //         exit(0);
-    //     }
-    // }
-    // ivmshm[EXEC_DONE] = 0;
-    // // ivmshm[INPUT_READY] = 1; 
-    // printf("QEMU ready!\n");
+    while (1) {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(pipefd[0], &readfds);
 
-    // uint8_t fuzz_done= ivmshm[EXEC_DONE];
+        struct timeval timeout;
+        timeout.tv_sec = 1; // 1秒
+        timeout.tv_usec = 0;
 
-    // cnt=0;
-    // int hang = 0;
-    // while(1){
-    //     cnt++;
-    //     fuzz_done = ivmshm[EXEC_DONE];
-    //     if(fuzz_done != 0){
-    //         printf("Fuzzing done!\n");
-    //         for(int i = 0; i < MAX_KVM; i++){
-    //             if(i < MAX_KVM_ARCH)
-    //                 kvm_arch_cnt += kvm_arch_coverage[i];
-    //             kvm_cnt += kvm_coverage[i];
-    //         }
-    //         printf("arch_cnt %ld, kvm_cnt %ld\n", kvm_arch_cnt, kvm_cnt);
-    //         if (save_coverage(prev_kvm_arch_cnt, prev_kvm_cnt, kvm_arch_cnt, kvm_cnt)) 
-    //             return 1;
-    //         break;
-    //     }
-    //     usleep(100);
-    //     if(cnt > 10000){
-    //         printf("qemu hang\n");
-    //         for(int i = 0; i < MAX_KVM; i++){
-    //             if(i < MAX_KVM_ARCH)
-    //                 kvm_arch_cnt += kvm_arch_coverage[i];
-    //             kvm_cnt += kvm_coverage[i];
-    //         }
-    //         if (save_coverage(prev_kvm_arch_cnt, prev_kvm_cnt, kvm_arch_cnt, kvm_cnt)) 
-    //             return 1;
-    //         ivmshm[QEMU_READY] = 0;
-    //         ivmshm[KILL_QEMU] = 1; // kill qemu
-    //         msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
-    //         hang = 1;
-    //         break;
-    //     }
-    // }
-    // ivmshm[INPUT_READY] = 0;
-    // ivmshm[EXEC_DONE] = 0; // write ok
-    // msync(ivmshm,2*5000,MS_ASYNC|MS_SYNC);
+        int ret = select(pipefd[0] + 1, &readfds, NULL, NULL, &timeout);
+        if (ret == -1) {
+            perror("select");
+            break;
+        }
 
-    // int bitmap_count = 0;
-    // for (int i = 0; i < 65536; i++){
-    //     if(afl_bitmap[i] != 0)
-    //         bitmap_count +=1;
-    // }
-    // if (bitmap_count == 0){
-    //     afl_bitmap[0] =1;
-    // }
-    // printf("bitmap_count %d\n", bitmap_count);
-    // if (afl_shm_id_str != NULL) {
-    //     memcpy(afl_area_ptr,afl_bitmap,65536);
-    //     shmdt(afl_area_ptr);
-    // }
+        if (ret == 0) { // タイムアウト
+            no_output_seconds++;
+            total_seconds++;
 
-    // if (munmap(ivmshm-12, 1024*1024)) {
-    //     fprintf(stderr, "munmap failed\n");
-    //     return 1;        
-    // }
-    // if (munmap(afl_bitmap, 65536)) {
-    //     fprintf(stderr, "munmap failed\n");
-    //     return 1;        
-    // }
-    // close(shm_fd);
-    // close(bitmap_fd);
-    // free(config);
-    // free(path_config);
+            if (!vmx_bench_found && total_seconds >= 15) {
+                execute_command("sudo xl destroy my_vm");
+                break;
+            }
 
-    return ret;
+            if (vmx_bench_found && no_output_seconds >= 1) {
+                execute_command("sudo xl destroy my_vm");
+                break;
+            }
+
+            continue;
+        }
+
+        ssize_t len = read(pipefd[0], buffer, sizeof(buffer) - 1);
+        if (len == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue; // ノンブロッキングモードでデータがない場合
+            }
+            perror("read");
+            break;
+        }
+
+        if (len == 0) {
+            break; // EOF
+        }
+
+        buffer[len] = '\0';
+        printf("%s", buffer); // バッファの内容を出力
+
+        if (strstr(buffer, "VMXbench")) {
+            vmx_bench_found = 1;
+        }
+
+        no_output_seconds = 0; // カウンタをリセット
+    }
+
+    close(pipefd[0]);
+
+    int status;
+    waitpid(pid, &status, 0); // 子プロセスの終了を待つ
+    char command[312] = {0};
+    struct timeval tv;
+    struct tm *tm;
+    char total_cov_path[256] = {0};
+    char f_name[256] = {0};
+    FILE * total_cov_file;
+    FILE * fp;
+        gettimeofday(&tv, NULL);
+        tm = localtime(&tv.tv_sec);
+        
+    get_xencov();
+    
+    sprintf(command,"xencov_split %s --output-dir=/", xencov_name);
+    execute_command(command);
+
+    char gcov_name[] = "/tmp/tmp.gcov";
+    execute_command("rm /tmp/tmp.gcov");
+
+    sprintf(command,"cd %s && find . -name \"*.gcda\" -exec gcov-12 -t {} + > %s", path_config->xen_dir, gcov_name);
+    execute_command(command);
+    if(afl_area_ptr) {
+        process_gcov_file(gcov_name, afl_area_ptr);
+    }
+    else {
+        uint8_t *bitmap = malloc(BITMAP_SIZE);
+        process_gcov_file(gcov_name, bitmap);
+    }
+
+    if (afl_shm_id_str != NULL) {
+        shmdt(afl_area_ptr);
+    }
+
+    close(shm_fd);
+    free(config);
+    free(path_config);
+
+    return 0;
 }
