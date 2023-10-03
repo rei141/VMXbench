@@ -180,7 +180,7 @@ void invalidate_vmcs(uint32_t field, uint32_t bits){
 void host_entry(uint64_t arg)
 {
     // __builtin_longjmp(env, 1);
-    while(1);
+    // while(1);
     uint64_t reason = vmread(0x4402);
     uint64_t rip = vmread(0x681E); // Guest RIP
     uint64_t len = vmread(0x440C); // VM-exit instruction length
@@ -369,7 +369,7 @@ void host_entry(uint64_t arg)
     // }
         loop_count++;
         wprintf(L"%d\r\n", loop_count);
-        if (loop_count > 10)
+        if (loop_count > 64)
             __builtin_longjmp(env, 1);
 
 
