@@ -208,10 +208,18 @@ void execute_command(const char *command) {
     int result = system(command);
     if (result != 0) {
         fprintf(stderr, "Failed to execute command: %s\n", command);
-        exit(EXIT_FAILURE);
+        // exit(EXIT_FAILURE);
+    }
+}
+void execute_command_with_fallback(const char *main_command, const char *fallback_command) {
+    int result = system(main_command);
+    if (result != 0) {
+        fprintf(stderr, "Failed to execute main command: %s\n", main_command);
+        execute_command(fallback_command);
     }
 }
 char xencov_name[256];
+char gcov_name[256];
 int get_xencov() {
     struct timeval tv;
     struct tm *tm;
@@ -227,6 +235,7 @@ int get_xencov() {
         return 1;
 
     sprintf(xencov_name,"%s/xencov_%02d_%02d_%02d_%02d_%02d", d_name, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    sprintf(gcov_name,"%s/gcov_%02d_%02d_%02d_%02d_%02d", d_name, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
     sprintf(command,"sudo xencov read > %s/xencov_%02d_%02d_%02d_%02d_%02d", d_name, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
     execute_command(command);
@@ -350,11 +359,13 @@ int main(int argc, char** argv) {
         fprintf(stderr, "save_input() failed\n");
 
     int ret = create_binc(config->afl_input_name, config->srcdir_name);
-    printf("hello\n");
-    execute_command("qemu-img create -f raw vfat_image.img 50M");
+    
+    execute_command("unzip -f OVMF-X64-r15214.zip OVMF.fd");
+    // execute_command("qemu-img create -f raw vfat_image.img 50M");
+    execute_command_with_fallback("qemu-img create -f raw vfat_image.img 50M", "sudo xl destroy my_vm");
     execute_command("mkfs.vfat vfat_image.img");
     execute_command("mkdir -p mnt");
-    execute_command("sudo mount vfat_image.img mnt");
+    execute_command("sudo mount vfat_image.img mnt || true");
     execute_command("sudo cp -Lr image/* mnt/");
     execute_command("sudo umount mnt");
     execute_command("sudo xencov reset");
@@ -408,11 +419,13 @@ int main(int argc, char** argv) {
             total_seconds++;
 
             if (!vmx_bench_found && total_seconds >= 15) {
+                printf("(!vmx_bench_found && total_seconds >= 15) \n");
                 execute_command("sudo xl destroy my_vm");
                 break;
             }
 
             if (vmx_bench_found && no_output_seconds >= 1) {
+                printf("(vmx_bench_found && no_output_seconds >= 1) \n");
                 execute_command("sudo xl destroy my_vm");
                 break;
             }
@@ -436,7 +449,7 @@ int main(int argc, char** argv) {
         buffer[len] = '\0';
         printf("%s", buffer); // バッファの内容を出力
 
-        if (strstr(buffer, "VMXbench")) {
+        if (strstr(buffer, "z")) {
             vmx_bench_found = 1;
         }
 
@@ -459,14 +472,17 @@ int main(int argc, char** argv) {
         
     get_xencov();
     
-    sprintf(command,"xencov_split %s --output-dir=/", xencov_name);
+    sprintf(command,"xencov_split %s --output-dir=/ > /dev/null", xencov_name);
     execute_command(command);
 
-    char gcov_name[] = "/tmp/tmp.gcov";
-    execute_command("rm /tmp/tmp.gcov");
-
-    sprintf(command,"cd %s && find . -name \"*.gcda\" -exec gcov-12 -t {} + > %s", path_config->xen_dir, gcov_name);
+    char tmpcov_name[] = "/tmp/tmp.gcov";
+    execute_command("rm /tmp/tmp.gcov -f");
+    sprintf(command,"cd %s && find . -name \"*.gcda\" -exec gcov-12 -t {} + > %s", path_config->xen_dir, tmpcov_name);
     execute_command(command);
+    // printf("%s\n",command);
+    sprintf(command,"mv %s %s", tmpcov_name, gcov_name);
+    execute_command(command);
+
     if(afl_area_ptr) {
         process_gcov_file(gcov_name, afl_area_ptr);
     }

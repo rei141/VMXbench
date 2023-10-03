@@ -6,6 +6,7 @@ export AFL_SKIP_CPUFREQ=1
 export AFL_DISABLE_TRIM=1
 export AFL_INST_RATIO=0
 export AFL_AUTORESUME=1
+export AFL_FAST_CAL=1
 CONFIG_PATH="./config.yaml"  # default path
 AFL_DIR=""
 MODE=""
@@ -81,7 +82,7 @@ elif [ "$MODE" = "S"  ]; then
     $WORK_DIR/tools/qemu_server "ivmshm_$ID" "afl_bitmap_$ID" > /dev/null 2>&1 &
     $AFL_DIR/afl-fuzz -i ./random_input -o "$OUT" -S fuzzer$ID -g 4096 -G 4096 -f afl_input_$ID -t 15000 -s 7 $WORK_DIR/tools/fuzz_auto "ivmshm_$ID" "afl_bitmap_$ID" afl_input_$ID
 elif [ -z $MODE ]; then
-    $AFL_DIR/afl-fuzz -i ./random_input -o "$OUT" -g 4096 -G 4096 -f afl_input -t 15000 -s 7 $WORK_DIR/tools/fuzz_auto "ivmshm" "afl_bitmap"
+    $AFL_DIR/afl-fuzz -i ./random_input_0 -o "$OUT" -g 4096 -G 4096 -f afl_input -t 20000 -s 7 $WORK_DIR/tools/fuzz_auto "ivmshm" "afl_bitmap"
 else
     echo "Usage: afl_fuzz.sh <output_directory> <operation> <fuzzer_id>"
     echo ""

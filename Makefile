@@ -29,7 +29,7 @@ QEMU_OPTS =-nodefaults -enable-kvm -machine accel=kvm \
 # QEMU_OPTS =-nodefaults -machine accel=kvm -cpu host -m 128 -bios OVMF.fd -hda $(QEMU_DISK) -nographic -serial mon:stdio -no-reboot
 
 VPATH = src
-SRC = src/main.c vmx.c pci.c uefi.c binc.c
+SRC = src/main.c vmx.c pci.c uefi.c msr.c fuzz.c binc.c
 main.efi: $(SRC)
 	$(CC) $(CFLAGS) $^ -o $@
 
