@@ -188,7 +188,7 @@ int create_binc(char *input_file, char *srcdir) {
         return 1;
     }
 
-    fprintf(f, "#include \"%s\"\n\n", header_file);
+    fprintf(f, "#include \"binc.h\"\n\n");
     fprintf(f, "uint8_t binary_data[] = {\n");
 
     for (long i = 0; i < size; i++) {
@@ -361,6 +361,7 @@ int main(int argc, char** argv) {
     int ret = create_binc(config->afl_input_name, config->srcdir_name);
     
     execute_command("unzip -f OVMF-X64-r15214.zip OVMF.fd");
+    execute_command("make");
     // execute_command("qemu-img create -f raw vfat_image.img 50M");
     execute_command_with_fallback("qemu-img create -f raw vfat_image.img 50M", "sudo xl destroy my_vm");
     execute_command("mkfs.vfat vfat_image.img");
